@@ -12,3 +12,9 @@ __pycache__/
 
 # Ignore VS Code settings
 .vscode/
+
+# Ignore large machine learning model files
+knh_sentiment_model.pkl
+
+# Ignore the database
+knh_feedback.db
