@@ -1,11 +1,8 @@
 def detect_department(feedback):
-    """
-    Analyzes feedback text to identify relevant hospital departments 
-    using Standard English and Swahili keywords.
-    """
-    feedback = feedback.lower()
+    # Standardizing text to lowercase
+    text = feedback.lower()
 
-    # Bilingual Mapping: English Key - List of English and Swahili Keywords
+    # Expanded Bilingual Mapping for KNH Specialized Units
     departments = {
         "Emergency": ["emergency", "casualty", "urgent", "ajali", "haraka", "triage"],
         "Outpatient": ["opd", "outpatient", "clinic", "kliniki", "mapokezi"],
@@ -14,24 +11,28 @@ def detect_department(feedback):
         "Pharmacy": ["pharmacy", "medicine", "drug", "dawa", "chemist"],
         "Laboratory": ["lab", "blood test", "sample", "maabara", "vipimo", "damu"],
         "Radiology": ["xray", "ultrasound", "scan", "picha", "mionzi"],
-        "Surgery": ["surgery", "operation", "upasuji", "thiyeta"],
+        "Surgery": ["surgery", "operation", "upasuji", "theatre"],
         "Billing": ["billing", "payment", "bill", "malipo", "pesa", "kaunta"],
         "Reception": ["reception", "front desk", "huduma kwa wateja"],
-        "Ward": ["ward", "admission", "kulazwa", "wodini"]
+        "Ward": ["ward", "admission", "kulazwa", "wodini"],
+        "ICU": ["icu", "hdu", "critical care", "mahututi", "isolation"],
+        "Renal": ["renal", "dialysis", "kidney", "figo", "kusafisha damu"],
+        "Dental": ["dental", "tooth", "teeth", "meno", "kung'oa", "dentist"],
+        "Oncology": ["cancer", "oncology", "chemotherapy", "kansa", "saratani", "clinic 13"]
     }
 
     found_depts = []
 
-    # Run through again the dictionary to find all matches
+    # Looping through the units and checking keywords
     for dept, keywords in departments.items():
         for word in keywords:
-            # Check for the word with spaces to avoid partial matches (like 'lab' in 'label')
-            if f" {word} " in f" {feedback} ":
+            # Using the space trick to ensure whole words are only matched
+            if f" {word} " in f" {text} ":
                 if dept not in found_depts:
                     found_depts.append(dept)
                 break 
 
-    # Return a comma-separated string of departments, or "General" if none found
+    # Return matches or fallback to General
     if found_depts:
         return ", ".join(found_depts)
     
