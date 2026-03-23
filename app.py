@@ -47,7 +47,7 @@ init_db()
 # 1. Patient Portal Home
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('patient feedback.html')
 
 # 2. Patient Feedback Submission
 @app.route('/submit', methods=['POST'])
@@ -73,7 +73,7 @@ def submit_feedback():
         conn.commit()
         conn.close()
 
-        return render_template('index.html', success=True, dept_name=department_result)
+        return render_template('patient feedback.html', success=True, dept_name=department_result)
 
 # 3. Staff Registration Route
 @app.route('/register', methods=['GET', 'POST'])
