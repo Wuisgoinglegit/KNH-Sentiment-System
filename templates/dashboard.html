@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNH | Admin Dashboard</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #ffffff; color: #333; }
+
+        /* Professional Header */
+        .dashboard-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 20px 40px; 
+            border-bottom: 3px solid #00102E; 
+            background: #fff;
+        }
+        .brand-section { display: flex; flex-direction: column; }
+        .brand-section img { height: 60px; width: auto; margin-bottom: 5px; }
+        .motto { color: #00102E; font-size: 14px; font-weight: bold; font-style: italic; }
+
+        .user-nav { display: flex; align-items: center; gap: 15px; color: #00102E; }
+        .logout-btn { color: #00102E; text-decoration: none; font-weight: bold; border: 2px solid #00102E; padding: 8px 15px; border-radius: 6px; transition: 0.3s; }
+        .logout-btn:hover { background: #00102E; color: #fff; }
+
+        .main-content { padding: 40px; }
+        
+        /* Section Titles */
+        h2.section-title { color: #00102E; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
+
+        /* Summary Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 40px; }
+        .stat-card { 
+            background: #fff; 
+            padding: 30px; 
+            border: 2px solid #00102E; 
+            border-radius: 12px; 
+            text-align: center;
+        }
+        .stat-card i { color: #00102E; margin-bottom: 10px; }
+        .stat-card h3 { color: #00102E; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .stat-card p { font-size: 32px; font-weight: 800; color: #00102E; }
+
+        /* Department Hub Grid */
+        .dept-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 40px; 
+        }
+        .dept-card {
+            background: #fff;
+            border: 2px solid #00102E;
+            padding: 15px;
+            text-align: center;
+            text-decoration: none;
+            color: #00102E;
+            font-weight: bold;
+            border-radius: 8px;
+            transition: 0.2s ease-in-out;
+        }
+        .dept-card:hover {
+            background-color: #87CEEC;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(0,16,46,0.1);
+        }
+
+        /* Feedback Table */
+        .table-wrapper { border: 2px solid #00102E; border-radius: 12px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        thead { background: #00102E; color: #fff; }
+        th { padding: 18px; text-align: left; font-size: 14px; text-transform: uppercase; }
+        
+        td { padding: 18px; border-bottom: 1px solid #eee; font-size: 15px; transition: 0.2s; cursor: pointer; }
+
+        /* Highlight Effect */
+        tr:hover td { background-color: #87CEEC; color: #00102E; font-weight: 500; }
+
+        /* Sentiment Badges */
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .pos { background: #dcfce7; color: #166534; }
+        .neg { background: #fee2e2; color: #991b1b; }
+        .neu { background: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body>
+
+    <header class="dashboard-header">
+        <div class="brand-section">
+            <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
+            <span class="motto">We Listen, We Care</span>
+        </div>
+        <div class="user-nav">
+            <i data-lucide="user-circle"></i>
+            <span>Admin Staff</span>
+            <a href="/login" class="logout-btn">Logout</a>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <h2 class="section-title"><i data-lucide="layout-dashboard"></i> System Overview</h2>
+
+        <section class="stats-grid">
+            <div class="stat-card">
+                <i data-lucide="message-square"></i>
+                <h3>Total Feedback</h3>
+                <p>{{ total }}</p>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="trending-up"></i>
+                <h3>Positive Score</h3>
+                <p>{{ pos_percent }}%</p>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="alert-circle"></i>
+                <h3>Critical Issues</h3>
+                <p>{{ neg_count }}</p>
+            </div>
+        </section>
+
+        <h2 class="section-title"><i data-lucide="grid"></i> Department Hub</h2>
+        
+        <div class="dept-grid">
+            <a href="/analysis/Emergency" class="dept-card">Emergency</a>
+            <a href="/analysis/Outpatient" class="dept-card">Outpatient</a>
+            <a href="/analysis/Maternity" class="dept-card">Maternity</a>
+            <a href="/analysis/Pediatrics" class="dept-card">Pediatrics</a>
+            <a href="/analysis/Pharmacy" class="dept-card">Pharmacy</a>
+            <a href="/analysis/Laboratory" class="dept-card">Laboratory</a>
+            <a href="/analysis/Radiology" class="dept-card">Radiology</a>
+            <a href="/analysis/Surgery" class="dept-card">Surgery</a>
+            <a href="/analysis/Ward" class="dept-card">Ward / Admissions</a>
+            <a href="/analysis/ICU" class="dept-card">ICU / HDU</a>
+            <a href="/analysis/Renal" class="dept-card">Renal</a>
+            <a href="/analysis/Dental" class="dept-card">Dental</a>
+            <a href="/analysis/Oncology" class="dept-card">Oncology</a>
+            <a href="/analysis/Reception" class="dept-card">Reception</a>
+            <a href="/analysis/Billing" class="dept-card">Billing</a>
+        </div>
+
+        <h2 class="section-title"><i data-lucide="list"></i> Recent Submissions</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Department</th>
+                        <th>Patient Feedback</th>
+                        <th>Sentiment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in feedbacks %}
+                    <tr>
+                        <td style="white-space: nowrap;">{{ row[4] }}</td>
+                        <td>
+                            <a href="/analysis/{{ row[3] }}" style="color: #00102E; text-decoration: none; font-weight: bold;">
+                                {{ row[3] }} <i data-lucide="external-link" style="width:12px; height:12px;"></i>
+                            </a>
+                        </td>
+                        <td style="max-width: 400px; line-height: 1.4;">{{ row[1] }}</td>
+                        <td>
+                            <span class="badge {% if row[2] == 'Positive' %}pos{% elif row[2] == 'Negative' %}neg{% else %}neu{% endif %}">
+                                {{ row[2] }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
