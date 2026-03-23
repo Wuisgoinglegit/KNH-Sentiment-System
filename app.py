@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 import sqlite3
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash # Required for secure passwords
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # custom scripts
 from sentiment_engine import SentimentEngine
@@ -42,7 +42,7 @@ def init_db():
 
 init_db()
 
-# URL Routes 
+# URL ROUTES
 
 # 1. Patient Portal Home
 @app.route('/')
@@ -83,26 +83,22 @@ def register():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
-        # Check if passwords match
         if password != confirm_password:
             return render_template('register.html', error="Passwords do not match!")
 
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         
-        # Check if Staff ID is already taken
         cursor.execute('SELECT * FROM admin_users WHERE staff_id = ?', (staff_id,))
         if cursor.fetchone():
             conn.close()
             return render_template('register.html', error="This Staff ID already exists!")
 
-        # Encrypt the password and save to the database
         hashed_pw = generate_password_hash(password)
         cursor.execute('INSERT INTO admin_users (staff_id, password_hash) VALUES (?, ?)', (staff_id, hashed_pw))
         conn.commit()
         conn.close()
 
-        # Send them to the login page with a success message
         return render_template('login.html', success_msg="Account created successfully! Please log in.")
 
     return render_template('register.html')
@@ -120,23 +116,66 @@ def login():
         user_record = cursor.fetchone()
         conn.close()
 
-        # Verify the user exists AND the password matches the hash
+        # If login successful, route directly to the Admin Dashboard
         if user_record and check_password_hash(user_record[0], password):
-            # Temporary success screen until we build the dashboard
-            return f"""
-            <div style="font-family: Arial; text-align: center; margin-top: 50px;">
-                <h2 style="color: #00102E;">Login Successful!</h2>
-                <p>Welcome, Staff ID: <strong>{staff_id}</strong>.</p>
-                <p style="color: #666;">(The Admin Dashboard will go here once we build it.)</p>
-                <br>
-                <a href="/login" style="color: #87CEEC; text-decoration: none; font-weight: bold;">Log Out</a>
-            </div>
-            """
+            return redirect(url_for('dashboard'))
         else:
             return render_template('login.html', error_msg="Invalid Staff ID or Password.")
 
     return render_template('login.html')
 
+# 5. Main Admin Dashboard Route
+@app.route('/dashboard')
+def dashboard():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM patient_feedback ORDER BY timestamp DESC')
+    feedbacks = cursor.fetchall()
+    
+    cursor.execute('SELECT COUNT(*) FROM patient_feedback')
+    total = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM patient_feedback WHERE sentiment_label = "Positive"')
+    pos_count = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM patient_feedback WHERE sentiment_label = "Negative"')
+    neg_count = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
+
+    return render_template('dashboard.html', 
+                           feedbacks=feedbacks, 
+                           total=total, 
+                           pos_percent=pos_percent, 
+                           neg_count=neg_count)
+
+# 6. Specific Department Analysis Route
+@app.route('/analysis/<dept_name>')
+def department_analysis(dept_name):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", 
+                   ('%' + dept_name + '%',))
+    dept_feedbacks = cursor.fetchall()
+    
+    cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ?", ('%' + dept_name + '%',))
+    total_dept = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ? AND sentiment_label = 'Negative'", 
+                   ('%' + dept_name + '%',))
+    neg_dept = cursor.fetchone()[0]
+    
+    conn.close()
+
+    return render_template('analysis.html', 
+                           dept=dept_name, 
+                           feedbacks=dept_feedbacks, 
+                           count=total_dept, 
+                           issues=neg_dept)
+
 if __name__ == '__main__':
-    # host='0.0.0.0' allows mobile network testing
     app.run(host='0.0.0.0', port=5000, debug=True)
