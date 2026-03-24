@@ -24,6 +24,7 @@
             --neu-color: #92400e;       
         }
 
+        /* Desktop Base Layout */
         body { background-color: var(--bg-light); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
         .sidebar { width: 260px; background-color: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; }
@@ -52,7 +53,7 @@
         .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .kpi-card { background: var(--surface); padding: 25px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; border-left: 5px solid var(--text-main); }
         .kpi-info h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; font-weight: bold; }
-        .kpi-info p { font-size: 32px; font-weight: bold; color: var(--text-main); }
+        .kpi-info p { font-size: 32px; font-weight: bold; color: var(--text-main); transition: color 0.3s; }
         .kpi-icon { padding: 15px; border-radius: 12px; background: var(--bg-light); color: var(--text-main); }
 
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -74,6 +75,20 @@
         .pos { background: #dcfce7; color: var(--pos-color); }
         .neg { background: #fee2e2; color: var(--neg-color); }
         .neu { background: #fef3c7; color: var(--neu-color); }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            body { flex-direction: column; overflow-y: auto; height: auto; }
+            .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 2px solid var(--border); }
+            .brand { padding: 15px; }
+            .menu-title { display: none; } 
+            .nav-list { display: flex; flex-direction: row; overflow-x: auto; padding: 10px; white-space: nowrap; }
+            .nav-item { margin-bottom: 0; margin-right: 10px; padding: 8px 15px; background: var(--bg-light); }
+            .top-header { flex-direction: column; gap: 15px; text-align: center; }
+            .kpi-grid, .charts-grid { grid-template-columns: 1fr; }
+            .dashboard-content { padding: 15px; }
+            .kpi-card { padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -108,7 +123,7 @@
         <header class="top-header">
             <div class="header-title">
                 <i data-lucide="layout-dashboard" style="color: var(--text-main);"></i>
-                System Overview
+                System Overview <span id="live-indicator" style="font-size: 10px; color: var(--pos-color); margin-left: 10px; display: flex; align-items: center; gap: 5px;"><span style="width: 8px; height: 8px; background: var(--pos-color); border-radius: 50%; display: inline-block; animation: pulse 2s infinite;"></span> LIVE</span>
             </div>
             
             <div class="user-nav">
@@ -123,21 +138,21 @@
                 <div class="kpi-card">
                     <div class="kpi-info">
                         <h3>Total Feedback</h3>
-                        <p>{{ total }}</p>
+                        <p id="kpi-total">{{ total }}</p>
                     </div>
                     <div class="kpi-icon"><i data-lucide="message-square-more"></i></div>
                 </div>
                 <div class="kpi-card" style="border-left-color: #166534;">
                     <div class="kpi-info">
                         <h3>Positive Score</h3>
-                        <p style="color: #166534;">{{ pos_percent }}%</p>
+                        <p id="kpi-pos" style="color: #166534;">{{ pos_percent }}%</p>
                     </div>
                     <div class="kpi-icon"><i data-lucide="trending-up"></i></div>
                 </div>
                 <div class="kpi-card" style="border-left-color: #991b1b;">
                     <div class="kpi-info">
                         <h3>Critical Issues</h3>
-                        <p style="color: #991b1b;">{{ neg_count }}</p>
+                        <p id="kpi-neg" style="color: #991b1b;">{{ neg_count }}</p>
                     </div>
                     <div class="kpi-icon"><i data-lucide="alert-octagon"></i></div>
                 </div>
@@ -171,7 +186,7 @@
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="feedback-table-body">
                             {% for row in feedbacks %}
                             <tr>
                                 <td style="color: var(--text-muted); white-space: nowrap;">{{ row[4][:10] }}</td>
@@ -195,73 +210,91 @@
         </div>
     </main>
 
-    <script>
-        // Start Icons safely
-        lucide.createIcons();
+    <style>
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
 
-        // Safely pull variables from Python using Jinja defaults
+    <script>
+        try { lucide.createIcons(); } catch (e) { console.error(e); }
+
         let posData = {{ pos_count | default(0) }};
         let neuData = {{ neu_count | default(0) }};
         let negData = {{ neg_count | default(0) }};
 
-        // INVISIBILITY SHIELD: If all data is 0, draw a gray placeholder so the chart doesn't vanish
         let chartData = [posData, neuData, negData];
         let bgColors = ['#4ade80', '#fcd34d', '#f87171'];
-        
         if (posData === 0 && neuData === 0 && negData === 0) {
-            chartData = [1, 1, 1];
-            bgColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0'];
+            chartData = [1, 1, 1]; bgColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0'];
         }
 
-        // 1. Render Donut Chart
+        // Initialize Charts
         const ctxDonut = document.getElementById('donutChart').getContext('2d');
-        new Chart(ctxDonut, {
+        let myDonutChart = new Chart(ctxDonut, {
             type: 'doughnut',
-            data: {
-                labels: ['Positive', 'Neutral', 'Negative'],
-                datasets: [{ 
-                    data: chartData, 
-                    backgroundColor: bgColors, 
-                    borderWidth: 2, 
-                    borderColor: '#ffffff', 
-                    hoverOffset: 4 
-                }]
-            },
-            options: {
-                responsive: true, 
-                maintainAspectRatio: false, 
-                cutout: '65%',
-                animation: { duration: 2500, easing: 'easeOutQuart', animateScale: true },
-                plugins: { 
-                    legend: { position: 'bottom', labels: { color: '#00102E', padding: 20, font: { family: 'Segoe UI', size: 12, weight: 'bold' } } } 
-                }
-            }
+            data: { labels: ['Positive', 'Neutral', 'Negative'], datasets: [{ data: chartData, backgroundColor: bgColors, borderWidth: 2, borderColor: '#ffffff', hoverOffset: 4 }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '65%', animation: { duration: 2500, easing: 'easeOutQuart', animateScale: true }, plugins: { legend: { position: 'bottom', labels: { color: '#00102E', padding: 20, font: { family: 'Segoe UI', size: 12, weight: 'bold' } } } } }
         });
 
-        // 2. Render Bar Chart
         const ctxBar = document.getElementById('barChart').getContext('2d');
-        new Chart(ctxBar, {
+        let myBarChart = new Chart(ctxBar, {
             type: 'bar',
-            data: {
-                labels: ['Positive', 'Neutral', 'Negative'],
-                datasets: [{ 
-                    label: 'Reviews', 
-                    data: chartData, 
-                    backgroundColor: bgColors, 
-                    borderRadius: 6 
-                }]
-            },
-            options: {
-                responsive: true, 
-                maintainAspectRatio: false,
-                animation: { duration: 2500, easing: 'easeOutBounce', delay: 200 },
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#E2E8F0' }, ticks: { stepSize: 1, color: '#666' } },
-                    x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#00102E' } }
-                }
-            }
+            data: { labels: ['Positive', 'Neutral', 'Negative'], datasets: [{ label: 'Reviews', data: chartData, backgroundColor: bgColors, borderRadius: 6 }] },
+            options: { responsive: true, maintainAspectRatio: false, animation: { duration: 2500, easing: 'easeOutBounce', delay: 200 }, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#E2E8F0' }, ticks: { stepSize: 1, color: '#666' } }, x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#00102E' } } } }
         });
+
+        // REAL-TIME DATA FETCHING SCRIPT
+        function updateDashboardLive() {
+            fetch('/api/dashboard_data')
+                .then(response => response.json())
+                .then(data => {
+                    // 1. Update KPI Numbers
+                    document.getElementById('kpi-total').innerText = data.total;
+                    document.getElementById('kpi-pos').innerText = data.pos_percent + '%';
+                    document.getElementById('kpi-neg').innerText = data.neg_count;
+
+                    // 2. Update Charts
+                    let newData = [data.pos_count, data.neu_count, data.neg_count];
+                    let newColors = ['#4ade80', '#fcd34d', '#f87171'];
+                    if (data.total === 0) { newData = [1, 1, 1]; newColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']; }
+                    
+                    myDonutChart.data.datasets[0].data = newData;
+                    myDonutChart.data.datasets[0].backgroundColor = newColors;
+                    myDonutChart.update();
+
+                    myBarChart.data.datasets[0].data = newData;
+                    myBarChart.data.datasets[0].backgroundColor = newColors;
+                    myBarChart.update();
+
+                    // 3. Update Table smoothly
+                    let tbody = document.getElementById('feedback-table-body');
+                    let newRows = '';
+                    data.feedbacks.forEach(row => {
+                        let date = row[0].substring(0, 10);
+                        let dept = row[1];
+                        let text = row[2];
+                        let status = row[3];
+                        let badgeClass = status === 'Positive' ? 'pos' : (status === 'Negative' ? 'neg' : 'neu');
+                        
+                        newRows += `
+                            <tr>
+                                <td style="color: var(--text-muted); white-space: nowrap;">${date}</td>
+                                <td><a href="/analysis/${dept}" class="dept-link">${dept}</a></td>
+                                <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</td>
+                                <td><span class="badge ${badgeClass}">${status}</span></td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = newRows;
+                })
+                .catch(err => console.error("Error fetching live data:", err));
+        }
+
+        // Run the update function every 5 seconds
+        setInterval(updateDashboardLive, 5000);
     </script>
 </body>
 </html>

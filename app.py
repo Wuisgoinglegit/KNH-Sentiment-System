@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify # Added jsonify
 import sqlite3
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -111,31 +111,47 @@ def login():
 def dashboard():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    cursor.execute('SELECT * FROM patient_feedback ORDER BY timestamp DESC')
+    cursor.execute('SELECT * FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     feedbacks = cursor.fetchall()
+    cursor.execute('SELECT COUNT(*) FROM patient_feedback')
+    total = cursor.fetchone()[0] or 0
+    cursor.execute('SELECT COUNT(*) FROM patient_feedback WHERE sentiment_label = "Positive"')
+    pos_count = cursor.fetchone()[0] or 0
+    cursor.execute('SELECT COUNT(*) FROM patient_feedback WHERE sentiment_label = "Negative"')
+    neg_count = cursor.fetchone()[0] or 0
+    neu_count = total - (pos_count + neg_count)
+    conn.close()
+    pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
+
+    return render_template('dashboard.html', feedbacks=feedbacks, total=total, pos_percent=pos_percent, pos_count=pos_count, neu_count=neu_count, neg_count=neg_count)     
+
+# NEW REAL-TIME API ROUTE
+@app.route('/api/dashboard_data')
+def api_dashboard_data():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
     
     cursor.execute('SELECT COUNT(*) FROM patient_feedback')
     total = cursor.fetchone()[0] or 0
-    
     cursor.execute('SELECT COUNT(*) FROM patient_feedback WHERE sentiment_label = "Positive"')
     pos_count = cursor.fetchone()[0] or 0
-    
     cursor.execute('SELECT COUNT(*) FROM patient_feedback WHERE sentiment_label = "Negative"')
     neg_count = cursor.fetchone()[0] or 0
-    
     neu_count = total - (pos_count + neg_count)
-    conn.close()
-    
     pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
 
-    return render_template('dashboard.html', 
-                           feedbacks=feedbacks, 
-                           total=total, 
-                           pos_percent=pos_percent,
-                           pos_count=pos_count,     
-                           neu_count=neu_count,     
-                           neg_count=neg_count)     
+    cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
+    recent_feedbacks = cursor.fetchall()
+    conn.close()
+
+    return jsonify({
+        'total': total,
+        'pos_percent': pos_percent,
+        'pos_count': pos_count,
+        'neg_count': neg_count,
+        'neu_count': neu_count,
+        'feedbacks': recent_feedbacks
+    })
 
 @app.route('/analysis/<dept_name>')
 def department_analysis(dept_name):
