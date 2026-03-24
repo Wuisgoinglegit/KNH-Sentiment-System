@@ -3,180 +3,265 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KNH | Admin Dashboard</title>
+    <title>KNH | Analytics Dashboard</title>
+    
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: #ffffff; color: #333; }
-
-        /* Professional Header */
-        .dashboard-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 20px 40px; 
-            border-bottom: 3px solid #00102E; 
-            background: #fff;
-        }
-        .brand-section { display: flex; flex-direction: column; }
-        .brand-section img { height: 60px; width: auto; margin-bottom: 5px; }
-        .motto { color: #00102E; font-size: 14px; font-weight: bold; font-style: italic; }
-
-        .user-nav { display: flex; align-items: center; gap: 15px; color: #00102E; }
-        .logout-btn { color: #00102E; text-decoration: none; font-weight: bold; border: 2px solid #00102E; padding: 8px 15px; border-radius: 6px; transition: 0.3s; }
-        .logout-btn:hover { background: #00102E; color: #fff; }
-
-        .main-content { padding: 40px; }
         
-        /* Section Titles */
-        h2.section-title { color: #00102E; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-
-        /* Summary Cards */
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 40px; }
-        .stat-card { 
-            background: #fff; 
-            padding: 30px; 
-            border: 2px solid #00102E; 
-            border-radius: 12px; 
-            text-align: center;
-        }
-        .stat-card i { color: #00102E; margin-bottom: 10px; }
-        .stat-card h3 { color: #00102E; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-        .stat-card p { font-size: 32px; font-weight: 800; color: #00102E; }
-
-        /* Department Hub Grid */
-        .dept-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
-            gap: 15px; 
-            margin-bottom: 40px; 
-        }
-        .dept-card {
-            background: #fff;
-            border: 2px solid #00102E;
-            padding: 15px;
-            text-align: center;
-            text-decoration: none;
-            color: #00102E;
-            font-weight: bold;
-            border-radius: 8px;
-            transition: 0.2s ease-in-out;
-        }
-        .dept-card:hover {
-            background-color: #87CEEC;
-            transform: translateY(-3px);
-            box-shadow: 0 4px 10px rgba(0,16,46,0.1);
+        :root {
+            --bg-light: #F4F7F9;        
+            --surface: #FFFFFF;         
+            --text-main: #00102E;       
+            --text-muted: #666666;      
+            --border: #E2E8F0;          
+            --accent: #87CEEC;          
+            --pos-color: #166534;       
+            --neg-color: #991b1b;       
+            --neu-color: #92400e;       
         }
 
-        /* Feedback Table */
-        .table-wrapper { border: 2px solid #00102E; border-radius: 12px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; background: #fff; }
-        thead { background: #00102E; color: #fff; }
-        th { padding: 18px; text-align: left; font-size: 14px; text-transform: uppercase; }
+        body { background-color: var(--bg-light); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        .sidebar { width: 260px; background-color: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; }
+        .brand { padding: 25px 20px; border-bottom: 2px solid var(--border); text-align: center; }
+        .brand img { height: 60px; width: auto; margin-bottom: 5px; } 
+        .brand h2 { font-size: 14px; font-style: italic; color: var(--text-main); font-weight: bold; }
         
-        td { padding: 18px; border-bottom: 1px solid #eee; font-size: 15px; transition: 0.2s; cursor: pointer; }
+        .menu-title { padding: 20px 20px 10px; font-size: 12px; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .nav-list { flex: 1; overflow-y: auto; padding: 0 10px 20px; list-style: none; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; color: var(--text-main); font-weight: 500; text-decoration: none; border-radius: 8px; font-size: 14px; transition: 0.2s; margin-bottom: 4px; }
+        .nav-item i { width: 18px; height: 18px; color: var(--text-muted); }
+        .nav-item:hover { background-color: var(--accent); color: var(--text-main); }
+        .nav-item:hover i { color: var(--text-main); }
 
-        /* Highlight Effect */
-        tr:hover td { background-color: #87CEEC; color: #00102E; font-weight: 500; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        
+        .top-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; border-bottom: 2px solid var(--border); background: var(--surface); }
+        .header-title { font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; color: var(--text-main); }
+        
+        .user-nav { display: flex; align-items: center; gap: 15px; color: var(--text-main); font-weight: bold; }
+        .logout-btn { background: transparent; border: 2px solid var(--text-main); color: var(--text-main); font-weight: bold; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; transition: 0.2s; }
+        .logout-btn:hover { background: var(--text-main); color: var(--surface); }
 
-        /* Sentiment Badges */
-        .badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-        .pos { background: #dcfce7; color: #166534; }
-        .neg { background: #fee2e2; color: #991b1b; }
-        .neu { background: #fef3c7; color: #92400e; }
+        .dashboard-content { padding: 30px; display: flex; flex-direction: column; gap: 25px; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .kpi-card { background: var(--surface); padding: 25px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; border-left: 5px solid var(--text-main); }
+        .kpi-info h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; font-weight: bold; }
+        .kpi-info p { font-size: 32px; font-weight: bold; color: var(--text-main); }
+        .kpi-icon { padding: 15px; border-radius: 12px; background: var(--bg-light); color: var(--text-main); }
+
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+        .panel h3 { font-size: 15px; color: var(--text-main); font-weight: bold; text-transform: uppercase; margin-bottom: 20px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;}
+        .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; }
+
+        .table-panel { width: 100%; }
+        .table-container { overflow-x: auto; max-height: 350px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 15px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12px; font-weight: bold; text-transform: uppercase; position: sticky; top: 0; background: var(--surface); z-index: 10;}
+        td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); transition: 0.2s;}
+        tr:hover td { background-color: rgba(135, 206, 236, 0.2); } 
+        
+        .dept-link { color: var(--text-main); text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 5px;}
+        .dept-link:hover { color: var(--accent); }
+
+        .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        .pos { background: #dcfce7; color: var(--pos-color); }
+        .neg { background: #fee2e2; color: var(--neg-color); }
+        .neu { background: #fef3c7; color: var(--neu-color); }
     </style>
 </head>
 <body>
 
-    <header class="dashboard-header">
-        <div class="brand-section">
-            <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
-            <span class="motto">We Listen, We Care</span>
+    <aside class="sidebar">
+        <div class="brand">
+            <img src="{{ url_for('static', filename='knh-logo-transparent.png') }}" alt="KNH Logo">
+            <h2>We Listen, We Care</h2>
         </div>
-        <div class="user-nav">
-            <i data-lucide="user-circle"></i>
-            <span>Admin Staff</span>
-            <a href="/login" class="logout-btn">Logout</a>
-        </div>
-    </header>
-
-    <main class="main-content">
-        <h2 class="section-title"><i data-lucide="layout-dashboard"></i> System Overview</h2>
-
-        <section class="stats-grid">
-            <div class="stat-card">
-                <i data-lucide="message-square"></i>
-                <h3>Total Feedback</h3>
-                <p>{{ total }}</p>
-            </div>
-            <div class="stat-card">
-                <i data-lucide="trending-up"></i>
-                <h3>Positive Score</h3>
-                <p>{{ pos_percent }}%</p>
-            </div>
-            <div class="stat-card">
-                <i data-lucide="alert-circle"></i>
-                <h3>Critical Issues</h3>
-                <p>{{ neg_count }}</p>
-            </div>
-        </section>
-
-        <h2 class="section-title"><i data-lucide="grid"></i> Department Hub</h2>
         
-        <div class="dept-grid">
-            <a href="/analysis/Emergency" class="dept-card">Emergency</a>
-            <a href="/analysis/Outpatient" class="dept-card">Outpatient</a>
-            <a href="/analysis/Maternity" class="dept-card">Maternity</a>
-            <a href="/analysis/Pediatrics" class="dept-card">Pediatrics</a>
-            <a href="/analysis/Pharmacy" class="dept-card">Pharmacy</a>
-            <a href="/analysis/Laboratory" class="dept-card">Laboratory</a>
-            <a href="/analysis/Radiology" class="dept-card">Radiology</a>
-            <a href="/analysis/Surgery" class="dept-card">Surgery</a>
-            <a href="/analysis/Ward" class="dept-card">Ward / Admissions</a>
-            <a href="/analysis/ICU" class="dept-card">ICU / HDU</a>
-            <a href="/analysis/Renal" class="dept-card">Renal</a>
-            <a href="/analysis/Dental" class="dept-card">Dental</a>
-            <a href="/analysis/Oncology" class="dept-card">Oncology</a>
-            <a href="/analysis/Reception" class="dept-card">Reception</a>
-            <a href="/analysis/Billing" class="dept-card">Billing</a>
-        </div>
+        <div class="menu-title">Departments</div>
+        <ul class="nav-list">
+            <li><a href="/analysis/Emergency" class="nav-item"><i data-lucide="ambulance"></i> Emergency</a></li>
+            <li><a href="/analysis/Outpatient" class="nav-item"><i data-lucide="stethoscope"></i> Outpatient</a></li>
+            <li><a href="/analysis/Maternity" class="nav-item"><i data-lucide="baby"></i> Maternity</a></li>
+            <li><a href="/analysis/Pediatrics" class="nav-item"><i data-lucide="smile"></i> Pediatrics</a></li>
+            <li><a href="/analysis/Pharmacy" class="nav-item"><i data-lucide="pill"></i> Pharmacy</a></li>
+            <li><a href="/analysis/Laboratory" class="nav-item"><i data-lucide="flask-conical"></i> Laboratory</a></li>
+            <li><a href="/analysis/Radiology" class="nav-item"><i data-lucide="activity"></i> Radiology</a></li>
+            <li><a href="/analysis/Surgery" class="nav-item"><i data-lucide="scissors"></i> Surgery</a></li>
+            <li><a href="/analysis/Ward" class="nav-item"><i data-lucide="bed-single"></i> Ward / Admits</a></li>
+            <li><a href="/analysis/ICU" class="nav-item"><i data-lucide="heart-pulse"></i> ICU / HDU</a></li>
+            <li><a href="/analysis/Renal" class="nav-item"><i data-lucide="droplets"></i> Renal</a></li>
+            <li><a href="/analysis/Dental" class="nav-item"><i data-lucide="smile-plus"></i> Dental</a></li>
+            <li><a href="/analysis/Oncology" class="nav-item"><i data-lucide="microscope"></i> Oncology</a></li>
+            <li><a href="/analysis/Reception" class="nav-item"><i data-lucide="concierge-bell"></i> Reception</a></li>
+            <li><a href="/analysis/Billing" class="nav-item"><i data-lucide="credit-card"></i> Billing</a></li>
+        </ul>
+    </aside>
 
-        <h2 class="section-title"><i data-lucide="list"></i> Recent Submissions</h2>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Department</th>
-                        <th>Patient Feedback</th>
-                        <th>Sentiment</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in feedbacks %}
-                    <tr>
-                        <td style="white-space: nowrap;">{{ row[4] }}</td>
-                        <td>
-                            <a href="/analysis/{{ row[3] }}" style="color: #00102E; text-decoration: none; font-weight: bold;">
-                                {{ row[3] }} <i data-lucide="external-link" style="width:12px; height:12px;"></i>
-                            </a>
-                        </td>
-                        <td style="max-width: 400px; line-height: 1.4;">{{ row[1] }}</td>
-                        <td>
-                            <span class="badge {% if row[2] == 'Positive' %}pos{% elif row[2] == 'Negative' %}neg{% else %}neu{% endif %}">
-                                {{ row[2] }}
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <main class="main-wrapper">
+        <header class="top-header">
+            <div class="header-title">
+                <i data-lucide="layout-dashboard" style="color: var(--text-main);"></i>
+                System Overview
+            </div>
+            
+            <div class="user-nav">
+                <i data-lucide="user-circle"></i>
+                <span>Admin Staff</span>
+                <a href="/login" class="logout-btn">Logout</a>
+            </div>
+        </header>
+
+        <div class="dashboard-content">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-info">
+                        <h3>Total Feedback</h3>
+                        <p>{{ total }}</p>
+                    </div>
+                    <div class="kpi-icon"><i data-lucide="message-square-more"></i></div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #166534;">
+                    <div class="kpi-info">
+                        <h3>Positive Score</h3>
+                        <p style="color: #166534;">{{ pos_percent }}%</p>
+                    </div>
+                    <div class="kpi-icon"><i data-lucide="trending-up"></i></div>
+                </div>
+                <div class="kpi-card" style="border-left-color: #991b1b;">
+                    <div class="kpi-info">
+                        <h3>Critical Issues</h3>
+                        <p style="color: #991b1b;">{{ neg_count }}</p>
+                    </div>
+                    <div class="kpi-icon"><i data-lucide="alert-octagon"></i></div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="panel">
+                    <h3><i data-lucide="pie-chart" style="width:18px;"></i> Sentiment Breakdown</h3>
+                    <div class="chart-container">
+                        <canvas id="donutChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3><i data-lucide="bar-chart-3" style="width:18px;"></i> Sentiment Volume</h3>
+                    <div class="chart-container">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel table-panel">
+                <h3><i data-lucide="list" style="width:18px;"></i> Recent Submissions</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Department</th>
+                                <th>Patient Feedback</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in feedbacks %}
+                            <tr>
+                                <td style="color: var(--text-muted); white-space: nowrap;">{{ row[4][:10] }}</td>
+                                <td>
+                                    <a href="/analysis/{{ row[3] }}" class="dept-link">
+                                        {{ row[3] }} <i data-lucide="external-link" style="width:12px; height:12px;"></i>
+                                    </a>
+                                </td>
+                                <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ row[1] }}</td>
+                                <td>
+                                    <span class="badge {% if row[2] == 'Positive' %}pos{% elif row[2] == 'Negative' %}neg{% else %}neu{% endif %}">
+                                        {{ row[2] }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </main>
 
     <script>
-        // Initialize Lucide icons
+        // Start Icons safely
         lucide.createIcons();
+
+        // Safely pull variables from Python using Jinja defaults
+        let posData = {{ pos_count | default(0) }};
+        let neuData = {{ neu_count | default(0) }};
+        let negData = {{ neg_count | default(0) }};
+
+        // INVISIBILITY SHIELD: If all data is 0, draw a gray placeholder so the chart doesn't vanish
+        let chartData = [posData, neuData, negData];
+        let bgColors = ['#4ade80', '#fcd34d', '#f87171'];
+        
+        if (posData === 0 && neuData === 0 && negData === 0) {
+            chartData = [1, 1, 1];
+            bgColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0'];
+        }
+
+        // 1. Render Donut Chart
+        const ctxDonut = document.getElementById('donutChart').getContext('2d');
+        new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+                labels: ['Positive', 'Neutral', 'Negative'],
+                datasets: [{ 
+                    data: chartData, 
+                    backgroundColor: bgColors, 
+                    borderWidth: 2, 
+                    borderColor: '#ffffff', 
+                    hoverOffset: 4 
+                }]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout: '65%',
+                animation: { duration: 2500, easing: 'easeOutQuart', animateScale: true },
+                plugins: { 
+                    legend: { position: 'bottom', labels: { color: '#00102E', padding: 20, font: { family: 'Segoe UI', size: 12, weight: 'bold' } } } 
+                }
+            }
+        });
+
+        // 2. Render Bar Chart
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: ['Positive', 'Neutral', 'Negative'],
+                datasets: [{ 
+                    label: 'Reviews', 
+                    data: chartData, 
+                    backgroundColor: bgColors, 
+                    borderRadius: 6 
+                }]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: false,
+                animation: { duration: 2500, easing: 'easeOutBounce', delay: 200 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#E2E8F0' }, ticks: { stepSize: 1, color: '#666' } },
+                    x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#00102E' } }
+                }
+            }
+        });
     </script>
 </body>
 </html>
