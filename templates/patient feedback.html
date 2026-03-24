@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patient Feedback - Kenyatta National Hospital</title>
+    <title>KNH | Patient Feedback</title>
     <style>
-        /* Base styles and reset */
+        /* Base Setup */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         body { display: flex; flex-direction: column; min-height: 100vh; }
         
-        /* Header & Brand */
+        /* Header */
         .portal-header { background-color: #FFFFFF; padding: 20px 40px; border-bottom: 4px solid #00102E; }
         .brand-container { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
         .brand-container img { height: 70px; width: auto; }
         .motto { color: #00102E; font-size: 16px; font-weight: bold; font-style: italic; }
         
-        /* Main Layout */
+        /* Main Portal Area */
         .portal-main { background-color: #87CEEC; flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 50px 20px; }
         .feedback-card { background-color: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 16, 46, 0.15); width: 100%; max-width: 600px; }
         
@@ -25,17 +25,21 @@
         .form-control:focus { border-color: #87CEEC; box-shadow: 0 0 0 3px rgba(135, 206, 236, 0.3); }
         
         /* Custom Select UI */
-        .custom-select-display { cursor: pointer; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300102E%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 15px top 50%; background-size: 12px auto; color: #757575; }
-        .custom-select-display.has-value { color: #333; }
-        .custom-options-container { display: none; position: absolute; top: 100%; left: 0; right: 0; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; max-height: 200px; overflow-y: auto; }
-        .custom-options-container.show { display: block; }
-        .custom-option { padding: 10px 15px; display: flex; align-items: center; cursor: pointer; }
-        .custom-option:hover { background-color: #f1f8ff; }
-        
-        .btn-submit { display: block; background-color: #00102E; color: #FFFFFF; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: 0.3s; }
+        .selector { cursor: pointer; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2300102E%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 15px top 50%; background-size: 12px auto; color: #757575; }
+        .options { display: none; position: absolute; top: 100%; left: 0; right: 0; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; margin-top: 5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; max-height: 250px; overflow-y: auto; }
+        .options.show { display: block; }
+        .opt-item { padding: 10px 15px; display: flex; align-items: center; cursor: pointer; gap: 10px; }
+        .opt-item:hover { background-color: #f1f8ff; }
+
+        .btn-submit { display: block; background-color: #00102E; color: #FFFFFF; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: 0.3s; text-align: center; text-decoration: none; }
         .btn-submit:hover { background-color: #002366; }
-        
-        .portal-footer { background-color: #00102E; color: #FFFFFF; padding: 30px; text-align: center; }
+
+        /* Professional Footer */
+        .portal-footer { background-color: #00102E; color: #FFFFFF; padding: 40px 20px 30px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .contact-info { margin-bottom: 30px; }
+        .contact-info h3 { font-size: 18px; margin-bottom: 12px; letter-spacing: 1px; color: #87CEEC; }
+        .contact-info p { font-size: 14px; line-height: 1.6; margin-bottom: 4px; color: #e0e0e0; }
+        .footer-logo img { height: 70px; }
     </style>
 </head>
 <body>
@@ -49,80 +53,80 @@
 
     <main class="portal-main">
         <div class="feedback-card">
-            
             {% if success %}
                 <div style="text-align: center;">
                     <h2 style="color: #00102E;">Response Recorded</h2>
-                    <p style="margin: 20px 0;">Thank you. Your feedback regarding:<br><strong>{{ dept_name }}</strong><br>has been submitted.</p>
-                    <a href="/" class="btn-submit" style="text-decoration: none;">Submit Another Review</a>
+                    <p style="margin: 20px 0;">Thank you. Your response regarding: <br><strong>{{ dept_name }}</strong><br> has been successfully submitted.</p>
+                    <a href="/" class="btn-submit">Submit Another Review</a>
                 </div>
-            
             {% else %}
                 <h2 style="color: #00102E; margin-bottom: 10px;">Share Your Experience</h2>
-                <p style="color: #555; margin-bottom: 20px;">Your feedback helps us improve KNH services.</p>
+                <p style="color: #555; margin-bottom: 20px;">Your honest feedback helps us improve our services.</p>
                 
                 <form action="/submit" method="POST" id="feedbackForm">
                     <div class="form-group">
-                        <textarea name="feedback_text" class="form-control" rows="5" placeholder="Type your review here... / Andika maoni yako hapa..." required></textarea>
+                        <textarea name="feedback_text" class="form-control" rows="5" placeholder="Please type your review here... / Andika maoni yako hapa..." required></textarea>
                     </div>
 
                     <div class="form-group">
-                        <div class="form-control custom-select-display" id="selectDisplay">Select department(s) / Chagua idara...</div>
+                        <div class="form-control selector" id="selectDisplay">Select department(s) / Chagua idara...</div>
                         
-                        <div class="custom-options-container" id="optionsContainer">
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Emergency"> Emergency / Dharura</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Outpatient"> Outpatient / Kliniki ya Nje</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Maternity"> Maternity / Uzazi</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Pediatrics"> Pediatrics / Watoto</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Pharmacy"> Pharmacy / Dawa</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Laboratory"> Laboratory / Maabara</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Radiology"> Radiology / Mionzi</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Surgery"> Surgery / Upasuji</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Billing"> Billing / Malipo</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Reception"> Reception / Mapokezi</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="Ward"> Ward / Wodi</label>
-                            <label class="custom-option"><input type="checkbox" name="department_selection" value="General"> General / Not Sure (Kawaida)</label>
+                        <div class="options" id="optionsContainer">
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Emergency"> Emergency / Dharura</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Outpatient"> Outpatient / Kliniki ya Nje</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Maternity"> Maternity / Uzazi</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Pediatrics"> Pediatrics / Watoto</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Pharmacy"> Pharmacy / Dawa</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Laboratory"> Laboratory / Maabara</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Radiology"> Radiology / Mionzi</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Surgery"> Surgery / Upasuji</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Billing"> Billing / Malipo</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Reception"> Reception / Mapokezi</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Ward"> Ward / Wodi</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="ICU"> ICU / Mahututi</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Renal"> Renal / Figo</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Dental"> Dental / Meno</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="Oncology"> Oncology / Saratani</label>
+                            <label class="opt-item"><input type="checkbox" name="department_selection" value="General"> General / Not Sure</label>
                         </div>
                     </div>
 
                     <button type="submit" class="btn-submit">Submit Feedback</button>
                 </form>
             {% endif %}
-
         </div>
     </main>
 
     <footer class="portal-footer">
-        <p>Kenyatta National Hospital, Nairobi | Tel: 0709854000</p>
+        <div class="contact-info">
+            <h3>CONTACT US</h3>
+            <p>Kenyatta National Hospital,<br>P.O. Box 20723-00202 Nairobi</p>
+            <p>Tel. 020 2726300, 0709854000, 0730643000</p>
+            <p>Email: knhadmin@knh.or.ke</p>
+        </div>
+        <div class="footer-logo">
+            <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
+        </div>
     </footer>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const selectDisplay = document.getElementById('selectDisplay');
             const optionsContainer = document.getElementById('optionsContainer');
-            const checkboxes = document.querySelectorAll('.custom-option input[type="checkbox"]');
+            const checkboxes = document.querySelectorAll('.opt-item input[type="checkbox"]');
             
-            // Open/Close dropdown
             selectDisplay.addEventListener('click', (e) => {
                 optionsContainer.classList.toggle('show');
                 e.stopPropagation();
             });
 
-            // Updating UI based on choices
             checkboxes.forEach(cb => {
                 cb.addEventListener('change', () => {
                     let selected = Array.from(checkboxes).filter(i => i.checked).map(i => i.value);
-                    if (selected.length === 0) {
-                        selectDisplay.textContent = 'Select department(s) / Chagua idara...';
-                        selectDisplay.classList.remove('has-value');
-                    } else {
-                        selectDisplay.textContent = selected.join(', ');
-                        selectDisplay.classList.add('has-value');
-                    }
+                    selectDisplay.textContent = selected.length > 0 ? selected.join(', ') : 'Select department(s) / Chagua idara...';
                 });
             });
 
-            // Close if clicking outside
             document.addEventListener('click', (e) => {
                 if (!optionsContainer.contains(e.target) && e.target !== selectDisplay) {
                     optionsContainer.classList.remove('show');
