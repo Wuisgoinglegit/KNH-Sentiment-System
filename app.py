@@ -4,6 +4,7 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 import random
 import os
+import io
 from dotenv import load_dotenv
 
 # IMPORTS FOR EXPORTS
@@ -13,6 +14,11 @@ from fpdf import FPDF
 import matplotlib
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
+
+# IMPORTS FOR WORD DOC
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # IMPORTS FOR REAL EMAIL
 import smtplib
@@ -48,7 +54,6 @@ def init_db():
         )
     ''')
     
-    # Safely upgrade DB to include Email, Phone, AND the new Urgency Level
     try:
         cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
         cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
@@ -89,7 +94,6 @@ def submit_feedback():
         else:
             department_result = ", ".join(department_selections)
 
-        # GET BOTH SENTIMENT AND URGENCY
         sentiment_result = engine.predict(patient_text)
         urgency_result = engine.predict_urgency(patient_text, sentiment_result)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -227,7 +231,6 @@ def dashboard():
     if 'staff_id' not in session: return redirect(url_for('login'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # PULL URGENCY LEVEL
     cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     feedbacks = cursor.fetchall()
     cursor.execute('SELECT COUNT(*) FROM patient_feedback')
@@ -254,7 +257,6 @@ def api_dashboard_data():
     neg_count = cursor.fetchone()[0] or 0
     neu_count = total - (pos_count + neg_count)
     pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
-    # PULL URGENCY LEVEL
     cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     recent_feedbacks = cursor.fetchall()
     conn.close()
@@ -277,6 +279,8 @@ def department_analysis(dept_name):
     conn.close()
     return render_template('analysis.html', dept=dept_name, feedbacks=dept_feedbacks, count=total_dept, issues=neg_dept, pos_count=pos_dept, neu_count=neu_dept, neg_count=neg_dept, staff_id=session['staff_id'])
 
+# EXPORT ROUTES (CSV, PDF, DOCX)
+
 @app.route('/export/csv')
 def export_csv():
     if 'staff_id' not in session: return redirect(url_for('login'))
@@ -291,7 +295,6 @@ def export_csv():
     conn.close()
     si = StringIO()
     cw = csv.writer(si)
-    # ADDED URGENCY HEADER
     cw.writerow(['Date', 'Department', 'Patient Feedback', 'Status', 'Urgency'])
     for row in feedbacks:
         cw.writerow([row[0], row[1], row[2], row[3], row[4]])
@@ -385,7 +388,6 @@ def export_pdf():
     pdf.set_font("helvetica", "B", 9)
     pdf.set_fill_color(226, 232, 240) 
     
-    # ADJUSTED PDF WIDTHS FOR URGENCY COLUMN (Total = 190)
     pdf.cell(25, 10, "Date", border=1, fill=True)
     pdf.cell(35, 10, "Department", border=1, fill=True)
     pdf.cell(80, 10, "Feedback", border=1, fill=True)
@@ -413,6 +415,80 @@ def export_pdf():
     response = make_response(bytes(pdf.output()))
     response.headers.set('Content-Disposition', 'attachment', filename=filename)
     response.headers.set('Content-Type', 'application/pdf')
+    return response
+
+@app.route('/export/word')
+def export_word():
+    if 'staff_id' not in session: return redirect(url_for('login'))
+    dept = request.args.get('dept', 'All')
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    if dept == 'All':
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
+    else:
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+    feedbacks = cursor.fetchall()
+    conn.close()
+
+    doc = Document()
+    
+    # Setup Letterhead using an invisible 2-column table
+    header_table = doc.add_table(rows=1, cols=2)
+    header_table.autofit = True
+    cell_logo = header_table.cell(0, 0)
+    cell_text = header_table.cell(0, 1)
+    
+    logo_path = os.path.join(app.root_path, 'static', 'kenyatta-national-hospital-seeklogo.png')
+    if os.path.exists(logo_path):
+        paragraph = cell_logo.paragraphs[0]
+        run = paragraph.add_run()
+        run.add_picture(logo_path, width=Inches(1.0))
+        
+    p = cell_text.paragraphs[0]
+    run_title = p.add_run("KENYATTA NATIONAL HOSPITAL\n")
+    run_title.bold = True
+    run_title.font.size = Pt(14)
+    run_info = p.add_run("P.O. Box 20723-00202 Nairobi\nTel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke")
+    run_info.font.size = Pt(10)
+    
+    doc.add_paragraph("_" * 75)
+    
+    title_text = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis"
+    title = doc.add_heading(title_text, level=1)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # Create Data Table
+    table = doc.add_table(rows=1, cols=5)
+    table.style = 'Table Grid'
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Date'
+    hdr_cells[1].text = 'Department'
+    hdr_cells[2].text = 'Feedback'
+    hdr_cells[3].text = 'Status'
+    hdr_cells[4].text = 'Urgency'
+    
+    for cell in hdr_cells:
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
+
+    for row in feedbacks:
+        row_cells = table.add_row().cells
+        row_cells[0].text = str(row[0][:10])
+        row_cells[1].text = str(row[1])
+        row_cells[2].text = str(row[2])
+        row_cells[3].text = str(row[3])
+        row_cells[4].text = str(row[4] if row[4] else 'Low')
+
+    mem_stream = io.BytesIO()
+    doc.save(mem_stream)
+    mem_stream.seek(0)
+    
+    filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.docx'
+    response = make_response(mem_stream.getvalue())
+    response.headers.set('Content-Disposition', 'attachment', filename=filename)
+    response.headers.set('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     return response
 
 if __name__ == '__main__':

@@ -53,15 +53,22 @@
 
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        /* Sentiment Badges */
         .pos { background: #dcfce7; color: var(--pos-color); }
         .neg { background: #fee2e2; color: var(--neg-color); }
         .neu { background: #fef3c7; color: var(--neu-color); }
         
-        /* Urgency Badges */
         .urg-high { background: #fee2e2; color: #991b1b; border: 1px solid #f87171;}
         .urg-med { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24;}
         .urg-low { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;}
+
+        /* Dropdown Styles */
+        .export-dropdown { position: relative; display: inline-block; }
+        .btn-export { background: #00102E; color: white; padding: 10px 15px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: none; cursor: pointer; transition: 0.2s; }
+        .btn-export:hover { background: #002366; }
+        .export-menu { display: none; position: absolute; right: 0; background-color: #ffffff; min-width: 200px; box-shadow: 0 8px 16px rgba(0,16,46,0.15); z-index: 100; border-radius: 8px; overflow: hidden; margin-top: 5px; border: 1px solid var(--border); }
+        .export-menu a { color: var(--text-main); padding: 12px 16px; text-decoration: none; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; transition: 0.2s; }
+        .export-menu a:hover { background-color: var(--bg-light); color: var(--accent); }
+        .export-dropdown:hover .export-menu { display: block; }
 
         @media (max-width: 768px) {
             body { padding: 20px 10px; }
@@ -83,9 +90,13 @@
                 <p>Detailed breakdown of patient sentiment and specific feedback.</p>
             </div>
             
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <a href="/export/csv?dept={{ dept }}" style="background: #166534; color: white; padding: 10px 15px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i data-lucide="file-spreadsheet" style="width:16px; height:16px;"></i> CSV</a>
-                <a href="/export/pdf?dept={{ dept }}" style="background: #991b1b; color: white; padding: 10px 15px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i data-lucide="file-text" style="width:16px; height:16px;"></i> PDF</a>
+            <div class="export-dropdown">
+                <button class="btn-export"><i data-lucide="download" style="width: 16px; height: 16px;"></i> Export As <i data-lucide="chevron-down" style="width: 16px; height: 16px;"></i></button>
+                <div class="export-menu">
+                    <a href="/export/csv?dept={{ dept }}"><i data-lucide="file-spreadsheet" style="color: #16a34a;"></i> CSV (Excel)</a>
+                    <a href="/export/pdf?dept={{ dept }}"><i data-lucide="file-text" style="color: #dc2626;"></i> PDF Document</a>
+                    <a href="/export/word?dept={{ dept }}"><i data-lucide="file-type-2" style="color: #2563eb;"></i> Word Document</a>
+                </div>
             </div>
         </div>
 
