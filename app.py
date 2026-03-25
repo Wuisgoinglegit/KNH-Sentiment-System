@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 import csv
 from io import StringIO
 from fpdf import FPDF
+import matplotlib
+matplotlib.use('Agg') # Ensures charts render in the background without opening windows
+import matplotlib.pyplot as plt
 
 # IMPORTS FOR REAL EMAIL
 import smtplib
@@ -19,7 +22,6 @@ from email.message import EmailMessage
 from sentiment_engine import SentimentEngine
 from department_detection import detect_department 
 
-# Load the secret environment variables from the .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -47,14 +49,11 @@ def init_db():
             password_hash VARCHAR(255) NOT NULL
         )
     ''')
-    
-    # Safely upgrade DB for email
     try:
         cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
-        cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)") # Kept to avoid DB breaking, but unused
+        cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
     except sqlite3.OperationalError:
         pass 
-
     conn.commit()
     conn.close()
 
@@ -95,7 +94,6 @@ def submit_feedback():
         ''', (patient_text, sentiment_result, department_result, current_time))
         conn.commit()
         conn.close()
-
         return redirect(url_for('home', success='true', dept=department_result))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -122,12 +120,10 @@ def register():
             return redirect(url_for('register', error='exists'))
 
         hashed_pw = generate_password_hash(password)
-        # Phone removed from insertion
         cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', 
                        (staff_id, email, hashed_pw))
         conn.commit()
         conn.close()
-        
         return redirect(url_for('login', registered='success'))
         
     return render_template('register.html', error=error_msg)
@@ -167,7 +163,6 @@ def forgot_password():
     if request.method == 'POST':
         if step == 'request':
             staff_id = request.form.get('staffId')
-            
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute('SELECT email FROM admin_users WHERE staff_id = ?', (staff_id,))
@@ -179,27 +174,21 @@ def forgot_password():
                 session['reset_code'] = code
                 session['reset_staff_id'] = staff_id
                 
-                # SEND EMAIL
                 try:
                     sender_email = os.getenv("SENDER_EMAIL")
                     app_password = os.getenv("EMAIL_APP_PASSWORD")
-                    
                     msg = EmailMessage()
                     msg.set_content(f"Hello,\n\nYour KNH Staff Password Reset Code is: {code}\n\nIf you did not request this, please ignore this email.")
                     msg['Subject'] = 'KNH Password Reset Code'
                     msg['From'] = f"KNH System <{sender_email}>"
                     msg['To'] = user[0]
-
                     server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
                     server.login(sender_email, app_password)
                     server.send_message(msg)
                     server.quit()
-                    print(f"SUCCESS: Real email sent to {user[0]}")
-                    
                 except Exception as e:
                     print(f"FAILED to send email: {e}")
                     print(f"YOUR KNH PASSWORD RESET CODE IS: {code}")
-                
                 return redirect(url_for('forgot_password', step='verify'))
             else:
                 error_msg = "Staff ID not found or no email registered."
@@ -214,14 +203,12 @@ def forgot_password():
         elif step == 'reset':
             new_password = request.form.get('new_password')
             hashed_pw = generate_password_hash(new_password)
-            
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute('UPDATE admin_users SET password_hash = ? WHERE staff_id = ?', 
                            (hashed_pw, session.get('reset_staff_id')))
             conn.commit()
             conn.close()
-            
             session.pop('reset_code', None)
             session.pop('reset_staff_id', None)
             return redirect(url_for('login', reset='success'))
@@ -309,32 +296,23 @@ def export_csv():
     response.headers.set('Content-Type', 'text/csv')
     return response
 
-# FIXED PDF BLUEPRINT
 class KNH_PDF(FPDF):
     def header(self):
         logo_path = os.path.join(app.root_path, 'static', 'kenyatta-national-hospital-seeklogo.png')
         if os.path.exists(logo_path):
-            self.image(logo_path, 10, 8, 25) # Logo is 25 units high, ends at y=33
-            
-        # Manually control text positions so it aligns beautifully next to logo
+            self.image(logo_path, 10, 8, 25)
         self.set_y(12)
         self.set_x(40)
         self.set_font('helvetica', 'B', 14)
         self.cell(0, 6, 'KENYATTA NATIONAL HOSPITAL', ln=True)
-        
         self.set_x(40)
         self.set_font('helvetica', '', 10)
         self.cell(0, 5, 'P.O. Box 20723-00202 Nairobi', ln=True)
-        
         self.set_x(40)
         self.cell(0, 5, 'Tel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke', ln=True)
-        
-        # Draw the line clearly BELOW the logo (y=38)
         self.set_draw_color(0, 16, 46) 
         self.set_line_width(1)
         self.line(10, 38, 200, 38)
-        
-        # Add space before the title starts
         self.set_y(45)
 
     def footer(self):
@@ -346,6 +324,7 @@ class KNH_PDF(FPDF):
 def export_pdf():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
+    
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if dept == 'All':
@@ -355,19 +334,47 @@ def export_pdf():
     feedbacks = cursor.fetchall()
     conn.close()
 
+    # MATPLOTLIB CHART GENERATION
+    pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
+    neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
+    neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+    labels = ['Positive', 'Neutral', 'Negative']
+    sizes = [pos_count, neu_count, neg_count]
+    colors = ['#4ade80', '#fcd34d', '#f87171']
+    if sum(sizes) == 0:
+        sizes = [1, 1, 1]
+        colors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']
+    
+    ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    ax1.axis('equal')
+    ax1.set_title('Sentiment Breakdown')
+    ax2.bar(labels, sizes, color=colors)
+    ax2.set_title('Sentiment Volume')
+
+    chart_path = os.path.join(app.root_path, 'static', f'temp_chart_export.png')
+    plt.savefig(chart_path, bbox_inches='tight')
+    plt.close()
+
     pdf = KNH_PDF()
     pdf.add_page()
     
     pdf.set_font("helvetica", "B", 16)
-    title = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis - Overall Hospital"
+    title = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis"
     pdf.cell(0, 10, title, align="C")
-    pdf.ln(15)
+    pdf.ln(12)
+
+    # Embed the chart image
+    if os.path.exists(chart_path):
+        pdf.image(chart_path, x=10, w=190)
+        pdf.ln(5)
 
     pdf.set_font("helvetica", "B", 10)
     pdf.set_fill_color(226, 232, 240) 
     pdf.cell(35, 10, "Date", border=1, fill=True)
     pdf.cell(40, 10, "Department", border=1, fill=True)
-    pdf.cell(90, 10, "Feedback Snippet", border=1, fill=True)
+    pdf.cell(90, 10, "Feedback", border=1, fill=True)
     pdf.cell(25, 10, "Status", border=1, fill=True)
     pdf.ln()
 

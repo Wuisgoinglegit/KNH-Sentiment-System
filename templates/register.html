@@ -7,12 +7,11 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        /* Light Blue Background */
         body { background-color: #87CEEC; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .auth-card { background: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,16,46,0.1); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid #00102E; }
         .auth-card img { height: 70px; margin-bottom: 20px; transition: 0.3s; }
         .auth-card h2 { color: #00102E; margin-bottom: 25px; font-size: 24px; }
-        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group { margin-bottom: 20px; text-align: left; position: relative;}
         .form-group label { display: block; font-size: 13px; font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; }
         .form-control { width: 100%; padding: 12px 15px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 15px; outline: none; transition: 0.3s; }
         .form-control:focus { border-color: #87CEEC; box-shadow: 0 0 0 3px rgba(135,206,236,0.3); }
@@ -23,6 +22,7 @@
         .auth-links a:hover { text-decoration: underline; }
         .alert { padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
         .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .toggle-pw-container { margin-top: 8px; font-size: 13px; color: #666; display: flex; align-items: center; gap: 6px; cursor: pointer;}
         @media (max-width: 480px) {
             .auth-card { padding: 30px 20px; }
             .auth-card img { height: 55px; }
@@ -52,11 +52,14 @@
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" name="password" class="form-control" required placeholder="Create password">
+                <input type="password" name="password" class="form-control pw-input" required placeholder="Create password">
             </div>
             <div class="form-group">
                 <label>Confirm Password</label>
-                <input type="password" name="confirm_password" class="form-control" required placeholder="Confirm password">
+                <input type="password" name="confirm_password" class="form-control pw-input" required placeholder="Confirm password">
+                <label class="toggle-pw-container">
+                    <input type="checkbox" onclick="togglePassword()"> Show Passwords
+                </label>
             </div>
             <button type="submit" class="btn-auth">Create Account</button>
         </form>
@@ -64,5 +67,18 @@
             <p>Already have an account? <a href="/login">Back to Login</a></p>
         </div>
     </div>
+
+    <script>
+        function togglePassword() {
+            var pwInputs = document.querySelectorAll('.pw-input');
+            pwInputs.forEach(input => {
+                if (input.type === "password") {
+                    input.type = "text";
+                } else {
+                    input.type = "password";
+                }
+            });
+        }
+    </script>
 </body>
 </html>
