@@ -49,7 +49,10 @@ def add_header(response):
 
 @app.route('/')
 def home():
-    return render_template('patient feedback.html')
+    # Catches success messages from the redirect
+    success = request.args.get('success')
+    dept_name = request.args.get('dept')
+    return render_template('patient feedback.html', success=success, dept_name=dept_name)
 
 @app.route('/submit', methods=['POST'])
 def submit_feedback():
@@ -74,34 +77,54 @@ def submit_feedback():
         conn.commit()
         conn.close()
 
-        return render_template('patient feedback.html', success=True, dept_name=department_result)
+        # PRG FIX: Redirects cleanly to the home page to prevent resubmission popups
+        return redirect(url_for('home', success='true', dept=department_result))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Catches errors from the redirect to display on a clean page
+    error_msg = None
+    err_code = request.args.get('error')
+    if err_code == 'mismatch':
+        error_msg = "Passwords do not match!"
+    elif err_code == 'exists':
+        error_msg = "This Staff ID already exists!"
+
     if request.method == 'POST':
         staff_id = request.form.get('staffId')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
         if password != confirm_password:
-            return render_template('register.html', error="Passwords do not match!")
+            return redirect(url_for('register', error='mismatch'))
 
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM admin_users WHERE staff_id = ?', (staff_id,))
         if cursor.fetchone():
             conn.close()
-            return render_template('register.html', error="This Staff ID already exists!")
+            return redirect(url_for('register', error='exists'))
 
         hashed_pw = generate_password_hash(password)
         cursor.execute('INSERT INTO admin_users (staff_id, password_hash) VALUES (?, ?)', (staff_id, hashed_pw))
         conn.commit()
         conn.close()
-        return render_template('login.html', success_msg="Account created successfully! Please log in.")
-    return render_template('register.html')
+        
+        # PRG FIX: Redirects cleanly to login upon success
+        return redirect(url_for('login', registered='success'))
+        
+    return render_template('register.html', error=error_msg)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    success_msg = None
+    if request.args.get('registered') == 'success':
+        success_msg = "Account created successfully! Please log in."
+        
+    error_msg = None
+    if request.args.get('error') == 'invalid':
+        error_msg = "Invalid Staff ID or Password."
+
     if request.method == 'POST':
         staff_id = request.form.get('staffId')
         password = request.form.get('password')
@@ -113,14 +136,15 @@ def login():
         conn.close()
 
         if user_record and check_password_hash(user_record[0], password):
-            # SECURE LOGIN: Save their ID into the session memory
+            # SECURE LOGIN: Save ID into the session memory
             session['staff_id'] = staff_id
             return redirect(url_for('dashboard'))
         else:
-            return render_template('login.html', error_msg="Invalid Staff ID or Password.")
-    return render_template('login.html')
+            return redirect(url_for('login', error='invalid'))
+            
+    return render_template('login.html', error_msg=error_msg, success_msg=success_msg)
 
-# NEW LOGOUT ROUTE: Destroys the session memory
+# LOGOUT ROUTE: Destroys the session memory
 @app.route('/logout')
 def logout():
     session.pop('staff_id', None)
@@ -153,7 +177,7 @@ def dashboard():
                            pos_count=pos_count, 
                            neu_count=neu_count, 
                            neg_count=neg_count,
-                           staff_id=session['staff_id']) # Pass the ID to HTML
+                           staff_id=session['staff_id'])
 
 @app.route('/api/dashboard_data')
 def api_dashboard_data():
@@ -215,7 +239,8 @@ def department_analysis(dept_name):
                            issues=neg_dept,
                            pos_count=pos_dept,
                            neu_count=neu_dept,
-                           neg_count=neg_dept)
+                           neg_count=neg_dept,
+                           staff_id=session['staff_id'])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
