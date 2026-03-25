@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KNH | Admin Registration</title>
+    <title>KNH | Staff Registration</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: #F4F7F9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        /* Light Blue Background */
+        body { background-color: #87CEEC; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .auth-card { background: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,16,46,0.1); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid #00102E; }
         .auth-card img { height: 70px; margin-bottom: 20px; transition: 0.3s; }
         .auth-card h2 { color: #00102E; margin-bottom: 25px; font-size: 24px; }
@@ -34,7 +35,7 @@
 <body>
     <div class="auth-card">
         <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
-        <h2>Register Admin</h2>
+        <h2>Register Staff</h2>
         
         {% if error %}
             <div class="alert alert-error">{{ error }}</div>
@@ -47,11 +48,7 @@
             </div>
             <div class="form-group">
                 <label>Email Address</label>
-                <input type="email" name="email" class="form-control" required placeholder="staff@knh.or.ke">
-            </div>
-            <div class="form-group">
-                <label>Phone Number (Kenya)</label>
-                <input type="tel" name="phone" class="form-control" required pattern="^(\+254|0|254)(7|1)\d{8}$" placeholder="e.g., 0712345678">
+                <input type="email" name="email" class="form-control" required placeholder="staff@gmail.com">
             </div>
             <div class="form-group">
                 <label>Password</label>

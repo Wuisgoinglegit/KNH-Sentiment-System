@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KNH | Admin Login</title>
+    <title>KNH | Staff Login</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: #F4F7F9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        /* Light Blue Background */
+        body { background-color: #87CEEC; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .auth-card { background: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,16,46,0.1); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid #00102E; }
         .auth-card img { height: 70px; margin-bottom: 20px; transition: 0.3s; }
         .auth-card h2 { color: #00102E; margin-bottom: 25px; font-size: 24px; }
@@ -35,7 +36,7 @@
 <body>
     <div class="auth-card">
         <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
-        <h2>Admin Portal</h2>
+        <h2>Staff Portal</h2>
         
         {% if error_msg %}
             <div class="alert alert-error">{{ error_msg }}</div>
@@ -50,16 +51,16 @@
                 <input type="text" name="staffId" class="form-control" required placeholder="Enter your KNH Staff ID">
             </div>
             <div class="form-group">
-                <label style="display: flex; justify-content: space-between;">
+                <label style="display: flex; justify-content: space-between; align-items: center;">
                     Password 
-                    <a href="/forgot" style="color: #87CEEC; text-decoration: none; font-size: 12px;">Forgot?</a>
+                    <a href="/forgot" style="color: #87CEEC; text-decoration: none; font-size: 12px; text-transform: none;">Forgot password</a>
                 </label>
                 <input type="password" name="password" class="form-control" required placeholder="Enter password">
             </div>
             <button type="submit" class="btn-auth">Secure Login</button>
         </form>
         <div class="auth-links">
-            <p>New administrator? <a href="/register">Create an account</a></p>
+            <p>New staff member? <a href="/register">Create an account</a></p>
         </div>
     </div>
 </body>

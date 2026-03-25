@@ -48,10 +48,10 @@ def init_db():
         )
     ''')
     
-    # Safely upgrade DB for email/phone if it doesn't exist yet
+    # Safely upgrade DB for email
     try:
         cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
-        cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
+        cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)") # Kept to avoid DB breaking, but unused
     except sqlite3.OperationalError:
         pass 
 
@@ -60,7 +60,6 @@ def init_db():
 
 init_db()
 
-# CACHE CONTROL: Blocks the back button after logout
 @app.after_request
 def add_header(response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -97,7 +96,6 @@ def submit_feedback():
         conn.commit()
         conn.close()
 
-        # PRG Pattern: Redirect to prevent form resubmission popup
         return redirect(url_for('home', success='true', dept=department_result))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -110,7 +108,6 @@ def register():
     if request.method == 'POST':
         staff_id = request.form.get('staffId')
         email = request.form.get('email')
-        phone = request.form.get('phone')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
@@ -125,8 +122,9 @@ def register():
             return redirect(url_for('register', error='exists'))
 
         hashed_pw = generate_password_hash(password)
-        cursor.execute('INSERT INTO admin_users (staff_id, email, phone, password_hash) VALUES (?, ?, ?, ?)', 
-                       (staff_id, email, phone, hashed_pw))
+        # Phone removed from insertion
+        cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', 
+                       (staff_id, email, hashed_pw))
         conn.commit()
         conn.close()
         
@@ -169,51 +167,42 @@ def forgot_password():
     if request.method == 'POST':
         if step == 'request':
             staff_id = request.form.get('staffId')
-            method = request.form.get('method')
             
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
-            cursor.execute('SELECT email, phone FROM admin_users WHERE staff_id = ?', (staff_id,))
+            cursor.execute('SELECT email FROM admin_users WHERE staff_id = ?', (staff_id,))
             user = cursor.fetchone()
             conn.close()
 
-            if user:
+            if user and user[0]:
                 code = str(random.randint(100000, 999999))
                 session['reset_code'] = code
                 session['reset_staff_id'] = staff_id
                 
-                # --- SEND REAL EMAIL ---
-                if method == 'email' and user[0]:
-                    try:
-                        sender_email = os.getenv("SENDER_EMAIL")
-                        app_password = os.getenv("EMAIL_APP_PASSWORD")
-                        
-                        msg = EmailMessage()
-                        msg.set_content(f"Hello,\n\nYour KNH Admin Password Reset Code is: {code}\n\nIf you did not request this, please ignore this email.")
-                        msg['Subject'] = 'KNH Password Reset Code'
-                        msg['From'] = f"KNH System <{sender_email}>"
-                        msg['To'] = user[0]
+                # SEND EMAIL
+                try:
+                    sender_email = os.getenv("SENDER_EMAIL")
+                    app_password = os.getenv("EMAIL_APP_PASSWORD")
+                    
+                    msg = EmailMessage()
+                    msg.set_content(f"Hello,\n\nYour KNH Staff Password Reset Code is: {code}\n\nIf you did not request this, please ignore this email.")
+                    msg['Subject'] = 'KNH Password Reset Code'
+                    msg['From'] = f"KNH System <{sender_email}>"
+                    msg['To'] = user[0]
 
-                        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-                        server.login(sender_email, app_password)
-                        server.send_message(msg)
-                        server.quit()
-                        print(f"SUCCESS: Real email sent to {user[0]}")
-                        
-                    except Exception as e:
-                        print(f"FAILED to send email: {e}")
-                        print(f"YOUR KNH PASSWORD RESET CODE IS: {code}")
-                        
-                # --- KEEP SMS SIMULATED IN TERMINAL ---
-                elif method == 'phone' and user[1]:
-                    print("\n" + "="*40)
-                    print(f"MOCK SMS SENT TO: {user[1]}")
+                    server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+                    server.login(sender_email, app_password)
+                    server.send_message(msg)
+                    server.quit()
+                    print(f"SUCCESS: Real email sent to {user[0]}")
+                    
+                except Exception as e:
+                    print(f"FAILED to send email: {e}")
                     print(f"YOUR KNH PASSWORD RESET CODE IS: {code}")
-                    print("="*40 + "\n")
                 
                 return redirect(url_for('forgot_password', step='verify'))
             else:
-                error_msg = "Staff ID not found in the system."
+                error_msg = "Staff ID not found or no email registered."
 
         elif step == 'verify':
             entered_code = request.form.get('code')
@@ -297,65 +286,56 @@ def department_analysis(dept_name):
     conn.close()
     return render_template('analysis.html', dept=dept_name, feedbacks=dept_feedbacks, count=total_dept, issues=neg_dept, pos_count=pos_dept, neu_count=neu_dept, neg_count=neg_dept, staff_id=session['staff_id'])
 
-# DYNAMIC EXPORT ROUTES (CSV & PDF LETTERHEAD)
-
 @app.route('/export/csv')
 def export_csv():
     if 'staff_id' not in session: return redirect(url_for('login'))
-    
-    # Check if a specific department was requested (defaults to 'All')
     dept = request.args.get('dept', 'All')
-    
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
     if dept == 'All':
         cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC')
     else:
         cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
-        
     feedbacks = cursor.fetchall()
     conn.close()
-
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Date', 'Department', 'Patient Feedback', 'Status'])
     for row in feedbacks:
         cw.writerow([row[0], row[1], row[2], row[3]])
-
-    # Dynamically name the downloaded file
     filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.csv'
-    
     response = make_response(si.getvalue())
     response.headers.set('Content-Disposition', 'attachment', filename=filename)
     response.headers.set('Content-Type', 'text/csv')
     return response
 
-# FPDF Blueprint for the Official KNH Letterhead
+# FIXED PDF BLUEPRINT
 class KNH_PDF(FPDF):
     def header(self):
         logo_path = os.path.join(app.root_path, 'static', 'kenyatta-national-hospital-seeklogo.png')
         if os.path.exists(logo_path):
-            self.image(logo_path, 10, 8, 25)
+            self.image(logo_path, 10, 8, 25) # Logo is 25 units high, ends at y=33
             
+        # Manually control text positions so it aligns beautifully next to logo
+        self.set_y(12)
+        self.set_x(40)
         self.set_font('helvetica', 'B', 14)
-        self.cell(30) 
-        self.cell(0, 6, 'KENYATTA NATIONAL HOSPITAL', align='L')
-        self.ln(6)
+        self.cell(0, 6, 'KENYATTA NATIONAL HOSPITAL', ln=True)
         
+        self.set_x(40)
         self.set_font('helvetica', '', 10)
-        self.cell(30)
-        self.cell(0, 5, 'P.O. Box 20723-00202 Nairobi', align='L')
-        self.ln(5)
+        self.cell(0, 5, 'P.O. Box 20723-00202 Nairobi', ln=True)
         
-        self.cell(30)
-        self.cell(0, 5, 'Tel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke', align='L')
-        self.ln(10)
+        self.set_x(40)
+        self.cell(0, 5, 'Tel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke', ln=True)
         
+        # Draw the line clearly BELOW the logo (y=38)
         self.set_draw_color(0, 16, 46) 
         self.set_line_width(1)
-        self.line(10, 32, 200, 32)
-        self.ln(10)
+        self.line(10, 38, 200, 38)
+        
+        # Add space before the title starts
+        self.set_y(45)
 
     def footer(self):
         self.set_y(-15)
@@ -365,23 +345,19 @@ class KNH_PDF(FPDF):
 @app.route('/export/pdf')
 def export_pdf():
     if 'staff_id' not in session: return redirect(url_for('login'))
-
     dept = request.args.get('dept', 'All')
-
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if dept == 'All':
         cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC')
     else:
         cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
-    
     feedbacks = cursor.fetchall()
     conn.close()
 
     pdf = KNH_PDF()
     pdf.add_page()
     
-    # Dynamic Document Title based on department
     pdf.set_font("helvetica", "B", 16)
     title = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis - Overall Hospital"
     pdf.cell(0, 10, title, align="C")
@@ -399,7 +375,6 @@ def export_pdf():
     for row in feedbacks:
         date_str = row[0][:10]
         dept_str = row[1][:20] 
-        # Clean text to prevent PDF rendering errors
         raw_text = row[2].encode('latin-1', 'ignore').decode('latin-1')
         text = raw_text[:50] + "..." if len(raw_text) > 50 else raw_text
         status = row[3]
