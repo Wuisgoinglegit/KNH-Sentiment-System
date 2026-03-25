@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify # Added jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 import sqlite3
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -125,7 +125,6 @@ def dashboard():
 
     return render_template('dashboard.html', feedbacks=feedbacks, total=total, pos_percent=pos_percent, pos_count=pos_count, neu_count=neu_count, neg_count=neg_count)     
 
-# NEW REAL-TIME API ROUTE
 @app.route('/api/dashboard_data')
 def api_dashboard_data():
     conn = sqlite3.connect(DB_NAME)
@@ -153,6 +152,7 @@ def api_dashboard_data():
         'feedbacks': recent_feedbacks
     })
 
+# UPDATED DEPARTMENT ROUTE (Now sends chart data)
 @app.route('/analysis/<dept_name>')
 def department_analysis(dept_name):
     conn = sqlite3.connect(DB_NAME)
@@ -163,11 +163,26 @@ def department_analysis(dept_name):
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ?", ('%' + dept_name + '%',))
     total_dept = cursor.fetchone()[0] or 0
     
+    # Get Positive count for this specific department
+    cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ? AND sentiment_label = 'Positive'", ('%' + dept_name + '%',))
+    pos_dept = cursor.fetchone()[0] or 0
+
+    # Get Negative count for this specific department
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ? AND sentiment_label = 'Negative'", ('%' + dept_name + '%',))
     neg_dept = cursor.fetchone()[0] or 0
+    
+    # Calculate Neutral
+    neu_dept = total_dept - (pos_dept + neg_dept)
     conn.close()
 
-    return render_template('analysis.html', dept=dept_name, feedbacks=dept_feedbacks, count=total_dept, issues=neg_dept)
+    return render_template('analysis.html', 
+                           dept=dept_name, 
+                           feedbacks=dept_feedbacks, 
+                           count=total_dept, 
+                           issues=neg_dept,
+                           pos_count=pos_dept,
+                           neu_count=neu_dept,
+                           neg_count=neg_dept)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

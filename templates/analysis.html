@@ -8,6 +8,8 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
     <script src="https://unpkg.com/lucide@latest"></script>
     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
         
@@ -41,13 +43,19 @@
         .kpi-card label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: bold; }
         .kpi-card p { font-size: 28px; font-weight: bold; margin-top: 5px; color: var(--text-main); }
 
+        /* ADDED: Charts Grid Layout */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+        .panel h3 { font-size: 15px; color: var(--text-main); font-weight: bold; text-transform: uppercase; margin-bottom: 20px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;}
+        .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; }
+
         /* Table */
         .table-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { padding: 15px; background: var(--surface); color: var(--text-muted); font-size: 12px; text-transform: uppercase; border-bottom: 2px solid var(--border); }
         td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.5;}
         tr:hover td { background-color: rgba(135, 206, 236, 0.1); }
-        .neg-row { border-left: 4px solid var(--neg-color); } /* Highlights negative rows subtly */
+        .neg-row { border-left: 4px solid var(--neg-color); } 
 
         /* Badges */
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -56,11 +64,12 @@
         .neu { background: #fef3c7; color: var(--neu-color); }
 
         /* Mobile Rules */
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             body { padding: 20px 10px; }
             .kpi-grid { grid-template-columns: 1fr; }
+            .charts-grid { grid-template-columns: 1fr; } /* Stack charts on mobile */
             .table-panel { overflow-x: auto; }
-            table { min-width: 600px; } /* Allows horizontal scrolling on small screens */
+            table { min-width: 600px; } 
         }
     </style>
 </head>
@@ -81,6 +90,22 @@
             <div class="kpi-card" style="border-left-color: var(--neg-color);">
                 <label>Critical Issues</label>
                 <p style="color: var(--neg-color);">{{ issues }}</p>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="panel">
+                <h3><i data-lucide="pie-chart" style="width:18px;"></i> {{ dept }} Sentiment Breakdown</h3>
+                <div class="chart-container">
+                    <canvas id="donutChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3><i data-lucide="bar-chart-3" style="width:18px;"></i> {{ dept }} Sentiment Volume</h3>
+                <div class="chart-container">
+                    <canvas id="barChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -118,7 +143,51 @@
     </div>
 
     <script>
-        lucide.createIcons();
+        try { lucide.createIcons(); } catch (e) { console.error(e); }
+
+        let posData = {{ pos_count | default(0) }};
+        let neuData = {{ neu_count | default(0) }};
+        let negData = {{ neg_count | default(0) }};
+
+        // Invisibility Shield
+        let chartData = [posData, neuData, negData];
+        let bgColors = ['#4ade80', '#fcd34d', '#f87171'];
+        if (posData === 0 && neuData === 0 && negData === 0) {
+            chartData = [1, 1, 1];
+            bgColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0'];
+        }
+
+        const ctxDonut = document.getElementById('donutChart').getContext('2d');
+        new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+                labels: ['Positive', 'Neutral', 'Negative'],
+                datasets: [{ data: chartData, backgroundColor: bgColors, borderWidth: 2, borderColor: '#ffffff', hoverOffset: 4 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                animation: { duration: 2500, easing: 'easeOutQuart', animateScale: true },
+                plugins: { legend: { position: 'bottom', labels: { color: '#00102E', padding: 20, font: { family: 'Segoe UI', size: 12, weight: 'bold' } } } }
+            }
+        });
+
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: ['Positive', 'Neutral', 'Negative'],
+                datasets: [{ label: 'Reviews', data: chartData, backgroundColor: bgColors, borderRadius: 6 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                animation: { duration: 2500, easing: 'easeOutBounce', delay: 200 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#E2E8F0' }, ticks: { stepSize: 1, color: '#666' } },
+                    x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#00102E' } }
+                }
+            }
+        });
     </script>
 </body>
 </html>
