@@ -11,7 +11,7 @@ import csv
 from io import StringIO
 from fpdf import FPDF
 import matplotlib
-matplotlib.use('Agg') # Ensures charts render in the background without opening windows
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 
 # IMPORTS FOR REAL EMAIL
@@ -22,6 +22,7 @@ from email.message import EmailMessage
 from sentiment_engine import SentimentEngine
 from department_detection import detect_department 
 
+# Load the secret environment variables from the .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -49,11 +50,13 @@ def init_db():
             password_hash VARCHAR(255) NOT NULL
         )
     ''')
+    
     try:
         cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
         cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
     except sqlite3.OperationalError:
         pass 
+
     conn.commit()
     conn.close()
 
@@ -94,6 +97,7 @@ def submit_feedback():
         ''', (patient_text, sentiment_result, department_result, current_time))
         conn.commit()
         conn.close()
+
         return redirect(url_for('home', success='true', dept=department_result))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -124,6 +128,7 @@ def register():
                        (staff_id, email, hashed_pw))
         conn.commit()
         conn.close()
+        
         return redirect(url_for('login', registered='success'))
         
     return render_template('register.html', error=error_msg)
@@ -163,6 +168,7 @@ def forgot_password():
     if request.method == 'POST':
         if step == 'request':
             staff_id = request.form.get('staffId')
+            
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute('SELECT email FROM admin_users WHERE staff_id = ?', (staff_id,))
@@ -177,18 +183,23 @@ def forgot_password():
                 try:
                     sender_email = os.getenv("SENDER_EMAIL")
                     app_password = os.getenv("EMAIL_APP_PASSWORD")
+                    
                     msg = EmailMessage()
                     msg.set_content(f"Hello,\n\nYour KNH Staff Password Reset Code is: {code}\n\nIf you did not request this, please ignore this email.")
                     msg['Subject'] = 'KNH Password Reset Code'
                     msg['From'] = f"KNH System <{sender_email}>"
                     msg['To'] = user[0]
+
                     server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
                     server.login(sender_email, app_password)
                     server.send_message(msg)
                     server.quit()
+                    print(f"SUCCESS: Real email sent to {user[0]}")
+                    
                 except Exception as e:
                     print(f"FAILED to send email: {e}")
                     print(f"YOUR KNH PASSWORD RESET CODE IS: {code}")
+                
                 return redirect(url_for('forgot_password', step='verify'))
             else:
                 error_msg = "Staff ID not found or no email registered."
@@ -203,12 +214,14 @@ def forgot_password():
         elif step == 'reset':
             new_password = request.form.get('new_password')
             hashed_pw = generate_password_hash(new_password)
+            
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute('UPDATE admin_users SET password_hash = ? WHERE staff_id = ?', 
                            (hashed_pw, session.get('reset_staff_id')))
             conn.commit()
             conn.close()
+            
             session.pop('reset_code', None)
             session.pop('reset_staff_id', None)
             return redirect(url_for('login', reset='success'))
@@ -334,23 +347,35 @@ def export_pdf():
     feedbacks = cursor.fetchall()
     conn.close()
 
-    # MATPLOTLIB CHART GENERATION
+    # UPDATED MATPLOTLIB CHART GENERATION
     pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
     neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
     neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
     labels = ['Positive', 'Neutral', 'Negative']
-    sizes = [pos_count, neu_count, neg_count]
+    raw_sizes = [pos_count, neu_count, neg_count]
     colors = ['#4ade80', '#fcd34d', '#f87171']
-    if sum(sizes) == 0:
-        sizes = [1, 1, 1]
-        colors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']
     
-    ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    # FIX: Filter out 0-value slices for the pie chart so text labels don't overlap
+    pie_labels = [l for s, l in zip(raw_sizes, labels) if s > 0]
+    pie_sizes = [s for s in raw_sizes if s > 0]
+    pie_colors = [c for s, c in zip(raw_sizes, colors) if s > 0]
+
+    # Fallback if there is zero data across the board
+    if sum(raw_sizes) == 0:
+        pie_sizes = [1, 1, 1]
+        pie_labels = ['No Data', '', '']
+        pie_colors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']
+        ax2.set_ylim(0, 1) # Prevent bar chart y-axis from breaking
+    
+    ax1.pie(pie_sizes, labels=pie_labels, colors=pie_colors, autopct='%1.1f%%', startangle=90)
     ax1.axis('equal')
     ax1.set_title('Sentiment Breakdown')
-    ax2.bar(labels, sizes, color=colors)
+    
+    # Bar chart draws normally (0 bars are fine)
+    bar_colors = colors if sum(raw_sizes) > 0 else ['#E2E8F0', '#E2E8F0', '#E2E8F0']
+    ax2.bar(labels, raw_sizes, color=bar_colors)
     ax2.set_title('Sentiment Volume')
 
     chart_path = os.path.join(app.root_path, 'static', f'temp_chart_export.png')
