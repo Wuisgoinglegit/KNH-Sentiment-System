@@ -6,7 +6,6 @@ class SentimentEngine:
     def __init__(self):
         print("Loading trained sentiment model...")
 
-        # Loading the trained model
         try:
             with open("knh_sentiment_model.pkl", "rb") as f:
                 self.model = pickle.load(f)
@@ -15,7 +14,7 @@ class SentimentEngine:
             print(f"Notice: ML Model not loaded correctly. ({e})")
             self.model = None
 
-        # MEGA HYBRID DICTIONARY
+        # --- MEGA HYBRID DICTIONARY ---
         self.negative_keywords = [
             'zimechelewa', 'vichafu', 'ndefu', 'shida', 'mbaya', 'vibaya', 'uchungu', 
             'kungoja', 'kuzubaa', 'hakuna', 'bovu', 'chafu', 'harufu', 'kelele', 
@@ -40,23 +39,26 @@ class SentimentEngine:
             'just waiting', 'average', 'fine', 'sawa', 'kawaida'
         ]
 
-    # SAME cleaning used during training
     def clean_text(self, text):
         text = str(text).lower()
         text = re.sub(r"http\S+", "", text)
         text = re.sub(r"[^a-zA-Z\s]", "", text)
         return text
 
+    # NEW: Helper function to prevent the Scunthorpe Problem (substring matching)
+    def contains_word(self, keyword, text):
+        # \b ensures we only match whole, standalone words
+        pattern = r'\b' + re.escape(keyword) + r'\b'
+        return re.search(pattern, text) is not None
+
     def predict(self, text):
 
         print("\n--- NEW REVIEW INCOMING ---")
         print(f"Original Text: {text}")
 
-        # Step 1: Clean text
         cleaned_text = self.clean_text(text)
         print(f"Cleaned Text: {cleaned_text}")
 
-        # Step 2: Scoring System
         raw_text_lower = str(text).lower()
         
         pos_score = 0
@@ -65,31 +67,31 @@ class SentimentEngine:
 
         # Tally Negative points
         for word in self.negative_keywords:
-            if word in cleaned_text or word in raw_text_lower:
+            if self.contains_word(word, cleaned_text) or self.contains_word(word, raw_text_lower):
+                print(f"[-] Matched Negative: {word}")
                 neg_score += 1
 
         # Tally Positive points
         for word in self.positive_keywords:
-            if word in cleaned_text or word in raw_text_lower:
+            if self.contains_word(word, cleaned_text) or self.contains_word(word, raw_text_lower):
+                print(f"[+] Matched Positive: {word}")
                 pos_score += 1
 
         # Tally Neutral points
         for word in self.neutral_keywords:
-            if word in cleaned_text or word in raw_text_lower:
+            if self.contains_word(word, cleaned_text) or self.contains_word(word, raw_text_lower):
+                print(f"[~] Matched Neutral: {word}")
                 neu_score += 1
 
-        # Evaluate Hybrid Scores if any keywords were found
         total_score = pos_score + neg_score + neu_score
         
         if total_score > 0:
             print(f"HYBRID SCORES -> Pos: {pos_score}, Neg: {neg_score}, Neu: {neu_score}")
             
-            # Tiebreaker: If it has equal good and bad things, it's mixed (Neutral)
             if pos_score > 0 and pos_score == neg_score:
                 print("HYBRID RESULT: Neutral (Mixed feedback)")
                 return "Neutral"
                 
-            # Highest score wins
             if neg_score > pos_score and neg_score >= neu_score:
                 print("HYBRID RESULT: Negative")
                 return "Negative"
@@ -100,10 +102,9 @@ class SentimentEngine:
                 print("HYBRID RESULT: Neutral")
                 return "Neutral"
 
-        # Step 3: Predict using the trained model (If no dictionary words were found)
         if self.model:
             prediction = self.model.predict([cleaned_text])[0]
             print(f"Model Prediction: {prediction}")
             return prediction
             
-        return "Neutral" # Ultimate fallback
+        return "Neutral"
