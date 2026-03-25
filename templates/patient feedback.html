@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KNH | Patient Feedback</title>
+    
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
+    
     <style>
         /* Base Setup */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
@@ -12,12 +15,12 @@
         /* Header */
         .portal-header { background-color: #FFFFFF; padding: 20px 40px; border-bottom: 4px solid #00102E; }
         .brand-container { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
-        .brand-container img { height: 70px; width: auto; }
+        .brand-container img { height: 70px; width: auto; transition: 0.3s; }
         .motto { color: #00102E; font-size: 16px; font-weight: bold; font-style: italic; }
         
         /* Main Portal Area */
         .portal-main { background-color: #87CEEC; flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 50px 20px; }
-        .feedback-card { background-color: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 16, 46, 0.15); width: 100%; max-width: 600px; }
+        .feedback-card { background-color: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 16, 46, 0.15); width: 100%; max-width: 600px; transition: 0.3s; }
         
         /* Form Styling */
         .form-group { margin-bottom: 15px; position: relative; }
@@ -40,6 +43,22 @@
         .contact-info h3 { font-size: 18px; margin-bottom: 12px; letter-spacing: 1px; color: #87CEEC; }
         .contact-info p { font-size: 14px; line-height: 1.6; margin-bottom: 4px; color: #e0e0e0; }
         .footer-logo img { height: 70px; }
+
+        /* NEW: Mobile Responsiveness Rules added back in */
+        @media (max-width: 768px) {
+            .portal-header { padding: 15px 20px; }
+            .brand-container img { height: 50px; }
+            .motto { font-size: 14px; }
+            
+            .portal-main { padding: 30px 15px; }
+            .feedback-card { padding: 25px 20px; }
+            
+            .form-control { padding: 12px; font-size: 15px; }
+            .btn-submit { padding: 14px; font-size: 16px; }
+            
+            .portal-footer { padding: 30px 15px 20px; }
+            .footer-logo img { height: 50px; }
+        }
     </style>
 </head>
 <body>
