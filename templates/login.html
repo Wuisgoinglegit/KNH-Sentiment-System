@@ -1,187 +1,66 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KNH - Login</title> 
-
+    <title>KNH | Admin Login</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
-
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-
-        body {
-            background-color: #87CEEC;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 20px;
-        }
-
-        .login-card {
-            background-color: #FFFFFF;
-            width: 100%;
-            max-width: 400px;
-            padding: 40px 32px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 16, 46, 0.15);
-        }
-
-        .login-logo {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .login-logo img {
-            height: 80px;
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        .login-header h2 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: #00102E;
-        }
-
-        .login-header p {
-            font-size: 14px;
-            color: #444;
-            font-weight: bold;
-        }
-
-        .message {
-            text-align: center;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 13px;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-
-        .success-msg {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #c8e6c9;
-        }
-
-        .error-msg {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 1px solid #ffcdd2;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 14px;
-            font-size: 15px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            outline: none;
-            background-color: #fcfcfc;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 25px;
-            font-size: 14px;
-            color: #555;
-            cursor: pointer;
-        }
-
-        .btn-submit {
-            width: 100%;
-            padding: 14px;
-            background-color: #00102E;
-            color: #FFFFFF;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .btn-submit:hover {
-            background-color: #002366;
-        }
-
-        .login-footer {
-            text-align: center;
-            font-size: 14px;
-            color: #666;
-            margin-top: 20px;
-        }
-
-        .login-footer a {
-            color: #00102E;
-            text-decoration: none;
-            font-weight: bold;
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #F4F7F9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .auth-card { background: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,16,46,0.1); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid #00102E; }
+        .auth-card img { height: 70px; margin-bottom: 20px; transition: 0.3s; }
+        .auth-card h2 { color: #00102E; margin-bottom: 25px; font-size: 24px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; }
+        .form-control { width: 100%; padding: 12px 15px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 15px; outline: none; transition: 0.3s; }
+        .form-control:focus { border-color: #87CEEC; box-shadow: 0 0 0 3px rgba(135,206,236,0.3); }
+        .btn-auth { background: #00102E; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-auth:hover { background: #002366; }
+        .auth-links { margin-top: 20px; font-size: 14px; }
+        .auth-links a { color: #87CEEC; text-decoration: none; font-weight: bold; }
+        .auth-links a:hover { text-decoration: underline; }
+        .alert { padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #4ade80; }
+        @media (max-width: 480px) {
+            .auth-card { padding: 30px 20px; }
+            .auth-card img { height: 55px; }
+            .auth-card h2 { font-size: 20px; }
+            .form-control { padding: 10px 12px; font-size: 14px; }
+            .btn-auth { padding: 12px; font-size: 15px; }
         }
     </style>
 </head>
-
 <body>
-    <div class="login-card">
-
-        <div class="login-logo">
-            <img src="{{ url_for('static', filename='knh-logo-transparent.png') }}" alt="KNH Logo">
-        </div>
-
-        <div class="login-header">
-            <h2>Sign In</h2>
-            <p>Enter your credentials to continue</p>
-        </div>
-
-        {% if success_msg %}
-            <div class="message success-msg">
-                {{ success_msg }}
-            </div>
-        {% endif %}
-
+    <div class="auth-card">
+        <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
+        <h2>Admin Portal</h2>
+        
         {% if error_msg %}
-            <div class="message error-msg">
-                {{ error_msg }}
-            </div>
+            <div class="alert alert-error">{{ error_msg }}</div>
+        {% endif %}
+        {% if success_msg %}
+            <div class="alert alert-success">{{ success_msg }}</div>
         {% endif %}
 
         <form action="/login" method="POST">
             <div class="form-group">
-                <input type="text" name="staffId" class="form-control" placeholder="Staff ID" required>
+                <label>Staff ID</label>
+                <input type="text" name="staffId" class="form-control" required placeholder="Enter your KNH Staff ID">
             </div>
-
             <div class="form-group">
-                <input type="password" id="login_password" name="password" class="form-control" placeholder="Password" required>
+                <label style="display: flex; justify-content: space-between;">
+                    Password 
+                    <a href="/forgot" style="color: #87CEEC; text-decoration: none; font-size: 12px;">Forgot?</a>
+                </label>
+                <input type="password" name="password" class="form-control" required placeholder="Enter password">
             </div>
-
-            <label class="checkbox-group">
-                <input type="checkbox" onclick="toggleLoginPassword()"> Show Password
-            </label>
-
-            <button type="submit" class="btn-submit">Sign In</button>
+            <button type="submit" class="btn-auth">Secure Login</button>
         </form>
-
-        <div class="login-footer">
-            Don't have an account? <a href="/register">Create here</a>
+        <div class="auth-links">
+            <p>New administrator? <a href="/register">Create an account</a></p>
         </div>
     </div>
-
-    <script>
-        function toggleLoginPassword() {
-            var x = document.getElementById("login_password");
-            x.type = (x.type === "password") ? "text" : "password";
-        }
-    </script>
-
 </body>
 </html>

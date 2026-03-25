@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, make_response
 import sqlite3
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -6,7 +6,12 @@ import random
 import os
 from dotenv import load_dotenv
 
-# NEW IMPORTS FOR REAL EMAIL
+# IMPORTS FOR EXPORTS
+import csv
+from io import StringIO
+from fpdf import FPDF
+
+# IMPORTS FOR REAL EMAIL
 import smtplib
 from email.message import EmailMessage
 
@@ -43,6 +48,7 @@ def init_db():
         )
     ''')
     
+    # Safely upgrade DB for email/phone if it doesn't exist yet
     try:
         cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
         cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
@@ -54,6 +60,7 @@ def init_db():
 
 init_db()
 
+# CACHE CONTROL: Blocks the back button after logout
 @app.after_request
 def add_header(response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -90,6 +97,7 @@ def submit_feedback():
         conn.commit()
         conn.close()
 
+        # PRG Pattern: Redirect to prevent form resubmission popup
         return redirect(url_for('home', success='true', dept=department_result))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -174,10 +182,9 @@ def forgot_password():
                 session['reset_code'] = code
                 session['reset_staff_id'] = staff_id
                 
-                # SEND REAL EMAIL
+                # --- SEND REAL EMAIL ---
                 if method == 'email' and user[0]:
                     try:
-                        # Securely fetch credentials from the .env file
                         sender_email = os.getenv("SENDER_EMAIL")
                         app_password = os.getenv("EMAIL_APP_PASSWORD")
                         
@@ -197,7 +204,7 @@ def forgot_password():
                         print(f"FAILED to send email: {e}")
                         print(f"YOUR KNH PASSWORD RESET CODE IS: {code}")
                         
-                # KEEP SMS SIMULATED IN TERMINAL
+                # --- KEEP SMS SIMULATED IN TERMINAL ---
                 elif method == 'phone' and user[1]:
                     print("\n" + "="*40)
                     print(f"MOCK SMS SENT TO: {user[1]}")
@@ -289,6 +296,125 @@ def department_analysis(dept_name):
     neu_dept = total_dept - (pos_dept + neg_dept)
     conn.close()
     return render_template('analysis.html', dept=dept_name, feedbacks=dept_feedbacks, count=total_dept, issues=neg_dept, pos_count=pos_dept, neu_count=neu_dept, neg_count=neg_dept, staff_id=session['staff_id'])
+
+# DYNAMIC EXPORT ROUTES (CSV & PDF LETTERHEAD)
+
+@app.route('/export/csv')
+def export_csv():
+    if 'staff_id' not in session: return redirect(url_for('login'))
+    
+    # Check if a specific department was requested (defaults to 'All')
+    dept = request.args.get('dept', 'All')
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    if dept == 'All':
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC')
+    else:
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+        
+    feedbacks = cursor.fetchall()
+    conn.close()
+
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Date', 'Department', 'Patient Feedback', 'Status'])
+    for row in feedbacks:
+        cw.writerow([row[0], row[1], row[2], row[3]])
+
+    # Dynamically name the downloaded file
+    filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.csv'
+    
+    response = make_response(si.getvalue())
+    response.headers.set('Content-Disposition', 'attachment', filename=filename)
+    response.headers.set('Content-Type', 'text/csv')
+    return response
+
+# FPDF Blueprint for the Official KNH Letterhead
+class KNH_PDF(FPDF):
+    def header(self):
+        logo_path = os.path.join(app.root_path, 'static', 'kenyatta-national-hospital-seeklogo.png')
+        if os.path.exists(logo_path):
+            self.image(logo_path, 10, 8, 25)
+            
+        self.set_font('helvetica', 'B', 14)
+        self.cell(30) 
+        self.cell(0, 6, 'KENYATTA NATIONAL HOSPITAL', align='L')
+        self.ln(6)
+        
+        self.set_font('helvetica', '', 10)
+        self.cell(30)
+        self.cell(0, 5, 'P.O. Box 20723-00202 Nairobi', align='L')
+        self.ln(5)
+        
+        self.cell(30)
+        self.cell(0, 5, 'Tel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke', align='L')
+        self.ln(10)
+        
+        self.set_draw_color(0, 16, 46) 
+        self.set_line_width(1)
+        self.line(10, 32, 200, 32)
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('helvetica', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='C')
+
+@app.route('/export/pdf')
+def export_pdf():
+    if 'staff_id' not in session: return redirect(url_for('login'))
+
+    dept = request.args.get('dept', 'All')
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    if dept == 'All':
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC')
+    else:
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+    
+    feedbacks = cursor.fetchall()
+    conn.close()
+
+    pdf = KNH_PDF()
+    pdf.add_page()
+    
+    # Dynamic Document Title based on department
+    pdf.set_font("helvetica", "B", 16)
+    title = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis - Overall Hospital"
+    pdf.cell(0, 10, title, align="C")
+    pdf.ln(15)
+
+    pdf.set_font("helvetica", "B", 10)
+    pdf.set_fill_color(226, 232, 240) 
+    pdf.cell(35, 10, "Date", border=1, fill=True)
+    pdf.cell(40, 10, "Department", border=1, fill=True)
+    pdf.cell(90, 10, "Feedback Snippet", border=1, fill=True)
+    pdf.cell(25, 10, "Status", border=1, fill=True)
+    pdf.ln()
+
+    pdf.set_font("helvetica", "", 9)
+    for row in feedbacks:
+        date_str = row[0][:10]
+        dept_str = row[1][:20] 
+        # Clean text to prevent PDF rendering errors
+        raw_text = row[2].encode('latin-1', 'ignore').decode('latin-1')
+        text = raw_text[:50] + "..." if len(raw_text) > 50 else raw_text
+        status = row[3]
+
+        pdf.cell(35, 10, date_str, border=1)
+        pdf.cell(40, 10, dept_str, border=1)
+        pdf.cell(90, 10, text, border=1)
+        pdf.cell(25, 10, status, border=1)
+        pdf.ln()
+
+    filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.pdf'
+    response = make_response(bytes(pdf.output()))
+    response.headers.set('Content-Disposition', 'attachment', filename=filename)
+    response.headers.set('Content-Type', 'application/pdf')
+    return response
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

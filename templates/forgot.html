@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNH | Password Recovery</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #F4F7F9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .auth-card { background: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,16,46,0.1); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid #00102E; }
+        .auth-card img { height: 70px; margin-bottom: 20px; transition: 0.3s; }
+        .auth-card h2 { color: #00102E; margin-bottom: 10px; font-size: 24px; }
+        .auth-card p { color: #666; font-size: 14px; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; }
+        .form-control { width: 100%; padding: 12px 15px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 15px; outline: none; transition: 0.3s; }
+        .form-control:focus { border-color: #87CEEC; box-shadow: 0 0 0 3px rgba(135,206,236,0.3); }
+        select.form-control { cursor: pointer; }
+        .btn-auth { background: #00102E; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-auth:hover { background: #002366; }
+        .auth-links { margin-top: 20px; font-size: 14px; }
+        .auth-links a { color: #87CEEC; text-decoration: none; font-weight: bold; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
+        @media (max-width: 480px) {
+            .auth-card { padding: 30px 20px; }
+            .auth-card img { height: 55px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
+        
+        {% if error %}
+            <div class="alert-error">{{ error }}</div>
+        {% endif %}
+
+        {% if step == 'request' %}
+            <h2>Recover Password</h2>
+            <p>Select how you want to receive your reset code.</p>
+            <form action="/forgot?step=request" method="POST">
+                <div class="form-group">
+                    <label>Staff ID</label>
+                    <input type="text" name="staffId" class="form-control" required placeholder="Enter your Staff ID">
+                </div>
+                <div class="form-group">
+                    <label>Recovery Method</label>
+                    <select name="method" class="form-control">
+                        <option value="phone">Send SMS to Phone</option>
+                        <option value="email">Send Email</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-auth">Send Recovery Code</button>
+            </form>
+
+        {% elif step == 'verify' %}
+            <h2>Enter Security Code</h2>
+            <p>Please check your phone/email for the 6-digit code we sent you.</p>
+            <form action="/forgot?step=verify" method="POST">
+                <div class="form-group">
+                    <label>6-Digit Code</label>
+                    <input type="text" name="code" class="form-control" required placeholder="e.g. 123456" maxlength="6">
+                </div>
+                <button type="submit" class="btn-auth">Verify Code</button>
+            </form>
+
+        {% elif step == 'reset' %}
+            <h2>Create New Password</h2>
+            <p>Your code was verified. Set a new password below.</p>
+            <form action="/forgot?step=reset" method="POST">
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="new_password" class="form-control" required placeholder="Enter new password">
+                </div>
+                <button type="submit" class="btn-auth">Save Password & Login</button>
+            </form>
+        {% endif %}
+
+        {% if step == 'request' %}
+        <div class="auth-links">
+            <p><a href="/login">Cancel and return to Login</a></p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

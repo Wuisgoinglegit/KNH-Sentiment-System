@@ -3,68 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KNH - Register</title>
-    
+    <title>KNH | Admin Registration</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
-
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        body { background-color: #87CEEC; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .login-card { background-color: #FFFFFF; width: 100%; max-width: 400px; padding: 40px 32px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 16, 46, 0.15); }
-        .login-logo { text-align: center; margin-bottom: 20px; }
-        .login-logo img { height: 80px; width: auto; }
-        .login-header { text-align: center; margin-bottom: 25px; }
-        .login-header h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: #00102E; }
-        .login-header p { font-size: 14px; color: #444; font-weight: bold; }
-        .error-msg { background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 6px; font-size: 13px; text-align: center; margin-bottom: 20px; border: 1px solid #ffcdd2; font-weight: 500;}
-        .form-group { margin-bottom: 18px; position: relative; }
-        .form-control { width: 100%; padding: 14px; font-size: 15px; border: 1px solid #ccc; border-radius: 8px; outline: none; transition: all 0.3s ease; background-color: #fcfcfc; }
-        .form-control:focus { border-color: #00102E; box-shadow: 0 0 0 3px rgba(0, 16, 46, 0.1); background-color: #FFFFFF; }
-        .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 14px; color: #555; cursor: pointer; }
-        .btn-submit { width: 100%; padding: 14px; background-color: #00102E; color: #FFFFFF; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background-color 0.2s; }
-        .btn-submit:hover { background-color: #002366; }
-        .login-footer { text-align: center; font-size: 14px; color: #666; margin-top: 20px; }
-        .login-footer a { color: #00102E; text-decoration: none; font-weight: bold; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #F4F7F9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .auth-card { background: #FFFFFF; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,16,46,0.1); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid #00102E; }
+        .auth-card img { height: 70px; margin-bottom: 20px; transition: 0.3s; }
+        .auth-card h2 { color: #00102E; margin-bottom: 25px; font-size: 24px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: bold; color: #666; margin-bottom: 8px; text-transform: uppercase; }
+        .form-control { width: 100%; padding: 12px 15px; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 15px; outline: none; transition: 0.3s; }
+        .form-control:focus { border-color: #87CEEC; box-shadow: 0 0 0 3px rgba(135,206,236,0.3); }
+        .btn-auth { background: #00102E; color: #fff; border: none; padding: 14px; width: 100%; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-auth:hover { background: #002366; }
+        .auth-links { margin-top: 20px; font-size: 14px; }
+        .auth-links a { color: #87CEEC; text-decoration: none; font-weight: bold; }
+        .auth-links a:hover { text-decoration: underline; }
+        .alert { padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+        @media (max-width: 480px) {
+            .auth-card { padding: 30px 20px; }
+            .auth-card img { height: 55px; }
+            .auth-card h2 { font-size: 20px; }
+            .form-control { padding: 10px 12px; font-size: 14px; }
+            .btn-auth { padding: 12px; font-size: 15px; }
+        }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="login-logo">
-            <img src="{{ url_for('static', filename='knh-logo-transparent.png') }}" alt="KNH Logo">
-        </div>
-        <div class="login-header">
-            <h2>Create Account</h2>
-            <p>Register as a new staff</p>
-        </div>
-        {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+    <div class="auth-card">
+        <img src="{{ url_for('static', filename='kenyatta-national-hospital-seeklogo.png') }}" alt="KNH Logo">
+        <h2>Register Admin</h2>
+        
+        {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
         <form action="/register" method="POST">
-    <div class="form-group">
-        <input type="text" id="staffId" name="staffId" class="form-control" placeholder="New Staff ID" required>
+            <div class="form-group">
+                <label>Staff ID</label>
+                <input type="text" name="staffId" class="form-control" required placeholder="Enter KNH Staff ID">
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" name="email" class="form-control" required placeholder="staff@knh.or.ke">
+            </div>
+            <div class="form-group">
+                <label>Phone Number (Kenya)</label>
+                <input type="tel" name="phone" class="form-control" required pattern="^(\+254|0|254)(7|1)\d{8}$" placeholder="e.g., 0712345678">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" required placeholder="Create password">
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" name="confirm_password" class="form-control" required placeholder="Confirm password">
+            </div>
+            <button type="submit" class="btn-auth">Create Account</button>
+        </form>
+        <div class="auth-links">
+            <p>Already have an account? <a href="/login">Back to Login</a></p>
+        </div>
     </div>
-
-    <div class="form-group">
-        <input type="password" id="password" name="password" class="form-control" placeholder="Create Password" required minlength="6">
-    </div>
-
-    <div class="form-group">
-        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Confirm Password" required minlength="6">
-    </div>
-
-    <label class="checkbox-group">
-        <input type="checkbox" onclick="togglePasswords()"> Show Passwords
-    </label>
-
-    <button type="submit" class="btn-submit">Register Account</button>
-</form>
-        <div class="login-footer">Already have an account? <a href="/login">Sign In</a></div>
-    </div>
-    <script>
-        function togglePasswords() {
-            var pw = document.getElementById("password");
-            var cpw = document.getElementById("confirm_password");
-            if (pw.type === "password") { pw.type = "text"; cpw.type = "text"; } 
-            else { pw.type = "password"; cpw.type = "password"; }
-        }
-    </script>
 </body>
 </html>
