@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 import sqlite3
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -8,8 +8,11 @@ from sentiment_engine import SentimentEngine
 from department_detection import detect_department 
 
 app = Flask(__name__)
-engine = SentimentEngine()
 
+# THE SECRET KEY: Required to securely remember who logged in
+app.secret_key = 'knh_secure_super_secret_key_2026' 
+
+engine = SentimentEngine()
 DB_NAME = "knh_feedback.db"
 
 def init_db():
@@ -35,6 +38,14 @@ def init_db():
     conn.close()
 
 init_db()
+
+# CACHE CONTROL: Prevents the browser back button from loading secure pages after logout
+@app.after_request
+def add_header(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.route('/')
 def home():
@@ -102,13 +113,25 @@ def login():
         conn.close()
 
         if user_record and check_password_hash(user_record[0], password):
+            # SECURE LOGIN: Save their ID into the session memory
+            session['staff_id'] = staff_id
             return redirect(url_for('dashboard'))
         else:
             return render_template('login.html', error_msg="Invalid Staff ID or Password.")
     return render_template('login.html')
 
+# NEW LOGOUT ROUTE: Destroys the session memory
+@app.route('/logout')
+def logout():
+    session.pop('staff_id', None)
+    return redirect(url_for('login'))
+
 @app.route('/dashboard')
 def dashboard():
+    # PROTECT ROUTE: If they aren't in the session memory, kick them back to login
+    if 'staff_id' not in session:
+        return redirect(url_for('login'))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
@@ -123,10 +146,20 @@ def dashboard():
     conn.close()
     pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
 
-    return render_template('dashboard.html', feedbacks=feedbacks, total=total, pos_percent=pos_percent, pos_count=pos_count, neu_count=neu_count, neg_count=neg_count)     
+    return render_template('dashboard.html', 
+                           feedbacks=feedbacks, 
+                           total=total, 
+                           pos_percent=pos_percent, 
+                           pos_count=pos_count, 
+                           neu_count=neu_count, 
+                           neg_count=neg_count,
+                           staff_id=session['staff_id']) # Pass the ID to HTML
 
 @app.route('/api/dashboard_data')
 def api_dashboard_data():
+    if 'staff_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
@@ -152,9 +185,12 @@ def api_dashboard_data():
         'feedbacks': recent_feedbacks
     })
 
-# UPDATED DEPARTMENT ROUTE (Now sends chart data)
 @app.route('/analysis/<dept_name>')
 def department_analysis(dept_name):
+    # PROTECT ROUTE
+    if 'staff_id' not in session:
+        return redirect(url_for('login'))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", ('%' + dept_name + '%',))
@@ -163,15 +199,12 @@ def department_analysis(dept_name):
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ?", ('%' + dept_name + '%',))
     total_dept = cursor.fetchone()[0] or 0
     
-    # Get Positive count for this specific department
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ? AND sentiment_label = 'Positive'", ('%' + dept_name + '%',))
     pos_dept = cursor.fetchone()[0] or 0
 
-    # Get Negative count for this specific department
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ? AND sentiment_label = 'Negative'", ('%' + dept_name + '%',))
     neg_dept = cursor.fetchone()[0] or 0
     
-    # Calculate Neutral
     neu_dept = total_dept - (pos_dept + neg_dept)
     conn.close()
 

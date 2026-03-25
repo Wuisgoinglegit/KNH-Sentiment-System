@@ -128,8 +128,8 @@
             
             <div class="user-nav">
                 <i data-lucide="user-circle"></i>
-                <span>Admin Staff</span>
-                <a href="/login" class="logout-btn">Logout</a>
+                <span style="text-transform: uppercase;">{{ staff_id }}</span>
+                <a href="/logout" class="logout-btn">Logout</a>
             </div>
         </header>
 
@@ -231,7 +231,6 @@
             chartData = [1, 1, 1]; bgColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0'];
         }
 
-        // Initialize Charts
         const ctxDonut = document.getElementById('donutChart').getContext('2d');
         let myDonutChart = new Chart(ctxDonut, {
             type: 'doughnut',
@@ -246,17 +245,17 @@
             options: { responsive: true, maintainAspectRatio: false, animation: { duration: 2500, easing: 'easeOutBounce', delay: 200 }, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#E2E8F0' }, ticks: { stepSize: 1, color: '#666' } }, x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#00102E' } } } }
         });
 
-        // REAL-TIME DATA FETCHING SCRIPT
         function updateDashboardLive() {
             fetch('/api/dashboard_data')
-                .then(response => response.json())
+                .then(response => {
+                    if (response.status === 401) { window.location.href = '/login'; }
+                    return response.json();
+                })
                 .then(data => {
-                    // 1. Update KPI Numbers
                     document.getElementById('kpi-total').innerText = data.total;
                     document.getElementById('kpi-pos').innerText = data.pos_percent + '%';
                     document.getElementById('kpi-neg').innerText = data.neg_count;
 
-                    // 2. Update Charts
                     let newData = [data.pos_count, data.neu_count, data.neg_count];
                     let newColors = ['#4ade80', '#fcd34d', '#f87171'];
                     if (data.total === 0) { newData = [1, 1, 1]; newColors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']; }
@@ -269,7 +268,6 @@
                     myBarChart.data.datasets[0].backgroundColor = newColors;
                     myBarChart.update();
 
-                    // 3. Update Table smoothly
                     let tbody = document.getElementById('feedback-table-body');
                     let newRows = '';
                     data.feedbacks.forEach(row => {
@@ -293,7 +291,6 @@
                 .catch(err => console.error("Error fetching live data:", err));
         }
 
-        // Run the update function every 5 seconds
         setInterval(updateDashboardLive, 5000);
     </script>
 </body>
