@@ -18,3 +18,5 @@ knh_sentiment_model.pkl
 
 # Ignore the database
 knh_feedback.db
+
+.env
