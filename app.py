@@ -18,13 +18,10 @@ import matplotlib.pyplot as plt
 import smtplib
 from email.message import EmailMessage
 
-# custom scripts
 from sentiment_engine import SentimentEngine
 from department_detection import detect_department 
 
-# Load the secret environment variables from the .env file
 load_dotenv()
-
 app = Flask(__name__)
 app.secret_key = 'knh_secure_super_secret_key_2026' 
 
@@ -51,11 +48,17 @@ def init_db():
         )
     ''')
     
+    # Safely upgrade DB to include Email, Phone, AND the new Urgency Level
     try:
         cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
         cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
     except sqlite3.OperationalError:
         pass 
+        
+    try:
+        cursor.execute("ALTER TABLE patient_feedback ADD COLUMN urgency_level VARCHAR(10) DEFAULT 'Low'")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -86,15 +89,17 @@ def submit_feedback():
         else:
             department_result = ", ".join(department_selections)
 
+        # GET BOTH SENTIMENT AND URGENCY
         sentiment_result = engine.predict(patient_text)
+        urgency_result = engine.predict_urgency(patient_text, sentiment_result)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO patient_feedback (raw_text, sentiment_label, dept_category, timestamp)
-            VALUES (?, ?, ?, ?)
-        ''', (patient_text, sentiment_result, department_result, current_time))
+            INSERT INTO patient_feedback (raw_text, sentiment_label, dept_category, timestamp, urgency_level)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (patient_text, sentiment_result, department_result, current_time, urgency_result))
         conn.commit()
         conn.close()
 
@@ -113,8 +118,7 @@ def register():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
 
-        if password != confirm_password:
-            return redirect(url_for('register', error='mismatch'))
+        if password != confirm_password: return redirect(url_for('register', error='mismatch'))
 
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
@@ -124,13 +128,10 @@ def register():
             return redirect(url_for('register', error='exists'))
 
         hashed_pw = generate_password_hash(password)
-        cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', 
-                       (staff_id, email, hashed_pw))
+        cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', (staff_id, email, hashed_pw))
         conn.commit()
         conn.close()
-        
         return redirect(url_for('login', registered='success'))
-        
     return render_template('register.html', error=error_msg)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -157,7 +158,6 @@ def login():
             return redirect(url_for('dashboard'))
         else:
             return redirect(url_for('login', error='invalid'))
-            
     return render_template('login.html', error_msg=error_msg, success_msg=success_msg)
 
 @app.route('/forgot', methods=['GET', 'POST'])
@@ -168,7 +168,6 @@ def forgot_password():
     if request.method == 'POST':
         if step == 'request':
             staff_id = request.form.get('staffId')
-            
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute('SELECT email FROM admin_users WHERE staff_id = ?', (staff_id,))
@@ -183,23 +182,17 @@ def forgot_password():
                 try:
                     sender_email = os.getenv("SENDER_EMAIL")
                     app_password = os.getenv("EMAIL_APP_PASSWORD")
-                    
                     msg = EmailMessage()
                     msg.set_content(f"Hello,\n\nYour KNH Staff Password Reset Code is: {code}\n\nIf you did not request this, please ignore this email.")
                     msg['Subject'] = 'KNH Password Reset Code'
                     msg['From'] = f"KNH System <{sender_email}>"
                     msg['To'] = user[0]
-
                     server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
                     server.login(sender_email, app_password)
                     server.send_message(msg)
                     server.quit()
-                    print(f"SUCCESS: Real email sent to {user[0]}")
-                    
                 except Exception as e:
-                    print(f"FAILED to send email: {e}")
-                    print(f"YOUR KNH PASSWORD RESET CODE IS: {code}")
-                
+                    pass
                 return redirect(url_for('forgot_password', step='verify'))
             else:
                 error_msg = "Staff ID not found or no email registered."
@@ -214,18 +207,14 @@ def forgot_password():
         elif step == 'reset':
             new_password = request.form.get('new_password')
             hashed_pw = generate_password_hash(new_password)
-            
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
-            cursor.execute('UPDATE admin_users SET password_hash = ? WHERE staff_id = ?', 
-                           (hashed_pw, session.get('reset_staff_id')))
+            cursor.execute('UPDATE admin_users SET password_hash = ? WHERE staff_id = ?', (hashed_pw, session.get('reset_staff_id')))
             conn.commit()
             conn.close()
-            
             session.pop('reset_code', None)
             session.pop('reset_staff_id', None)
             return redirect(url_for('login', reset='success'))
-
     return render_template('forgot.html', step=step, error=error_msg)
 
 @app.route('/logout')
@@ -238,7 +227,8 @@ def dashboard():
     if 'staff_id' not in session: return redirect(url_for('login'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
+    # PULL URGENCY LEVEL
+    cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     feedbacks = cursor.fetchall()
     cursor.execute('SELECT COUNT(*) FROM patient_feedback')
     total = cursor.fetchone()[0] or 0
@@ -264,7 +254,8 @@ def api_dashboard_data():
     neg_count = cursor.fetchone()[0] or 0
     neu_count = total - (pos_count + neg_count)
     pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
-    cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
+    # PULL URGENCY LEVEL
+    cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     recent_feedbacks = cursor.fetchall()
     conn.close()
     return jsonify({'total': total, 'pos_percent': pos_percent, 'pos_count': pos_count, 'neg_count': neg_count, 'neu_count': neu_count, 'feedbacks': recent_feedbacks})
@@ -274,7 +265,7 @@ def department_analysis(dept_name):
     if 'staff_id' not in session: return redirect(url_for('login'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", ('%' + dept_name + '%',))
+    cursor.execute("SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", ('%' + dept_name + '%',))
     dept_feedbacks = cursor.fetchall()
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ?", ('%' + dept_name + '%',))
     total_dept = cursor.fetchone()[0] or 0
@@ -293,16 +284,17 @@ def export_csv():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if dept == 'All':
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC')
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
     else:
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
     feedbacks = cursor.fetchall()
     conn.close()
     si = StringIO()
     cw = csv.writer(si)
-    cw.writerow(['Date', 'Department', 'Patient Feedback', 'Status'])
+    # ADDED URGENCY HEADER
+    cw.writerow(['Date', 'Department', 'Patient Feedback', 'Status', 'Urgency'])
     for row in feedbacks:
-        cw.writerow([row[0], row[1], row[2], row[3]])
+        cw.writerow([row[0], row[1], row[2], row[3], row[4]])
     filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.csv'
     response = make_response(si.getvalue())
     response.headers.set('Content-Disposition', 'attachment', filename=filename)
@@ -341,13 +333,12 @@ def export_pdf():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if dept == 'All':
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback ORDER BY timestamp DESC')
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
     else:
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
     feedbacks = cursor.fetchall()
     conn.close()
 
-    # UPDATED MATPLOTLIB CHART GENERATION
     pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
     neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
     neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
@@ -357,23 +348,20 @@ def export_pdf():
     raw_sizes = [pos_count, neu_count, neg_count]
     colors = ['#4ade80', '#fcd34d', '#f87171']
     
-    # FIX: Filter out 0-value slices for the pie chart so text labels don't overlap
     pie_labels = [l for s, l in zip(raw_sizes, labels) if s > 0]
     pie_sizes = [s for s in raw_sizes if s > 0]
     pie_colors = [c for s, c in zip(raw_sizes, colors) if s > 0]
 
-    # Fallback if there is zero data across the board
     if sum(raw_sizes) == 0:
         pie_sizes = [1, 1, 1]
         pie_labels = ['No Data', '', '']
         pie_colors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']
-        ax2.set_ylim(0, 1) # Prevent bar chart y-axis from breaking
+        ax2.set_ylim(0, 1) 
     
     ax1.pie(pie_sizes, labels=pie_labels, colors=pie_colors, autopct='%1.1f%%', startangle=90)
     ax1.axis('equal')
     ax1.set_title('Sentiment Breakdown')
     
-    # Bar chart draws normally (0 bars are fine)
     bar_colors = colors if sum(raw_sizes) > 0 else ['#E2E8F0', '#E2E8F0', '#E2E8F0']
     ax2.bar(labels, raw_sizes, color=bar_colors)
     ax2.set_title('Sentiment Volume')
@@ -390,31 +378,35 @@ def export_pdf():
     pdf.cell(0, 10, title, align="C")
     pdf.ln(12)
 
-    # Embed the chart image
     if os.path.exists(chart_path):
         pdf.image(chart_path, x=10, w=190)
         pdf.ln(5)
 
-    pdf.set_font("helvetica", "B", 10)
+    pdf.set_font("helvetica", "B", 9)
     pdf.set_fill_color(226, 232, 240) 
-    pdf.cell(35, 10, "Date", border=1, fill=True)
-    pdf.cell(40, 10, "Department", border=1, fill=True)
-    pdf.cell(90, 10, "Feedback", border=1, fill=True)
+    
+    # ADJUSTED PDF WIDTHS FOR URGENCY COLUMN (Total = 190)
+    pdf.cell(25, 10, "Date", border=1, fill=True)
+    pdf.cell(35, 10, "Department", border=1, fill=True)
+    pdf.cell(80, 10, "Feedback", border=1, fill=True)
     pdf.cell(25, 10, "Status", border=1, fill=True)
+    pdf.cell(25, 10, "Urgency", border=1, fill=True)
     pdf.ln()
 
-    pdf.set_font("helvetica", "", 9)
+    pdf.set_font("helvetica", "", 8)
     for row in feedbacks:
         date_str = row[0][:10]
         dept_str = row[1][:20] 
         raw_text = row[2].encode('latin-1', 'ignore').decode('latin-1')
-        text = raw_text[:50] + "..." if len(raw_text) > 50 else raw_text
+        text = raw_text[:45] + "..." if len(raw_text) > 45 else raw_text
         status = row[3]
+        urgency = row[4] if row[4] else 'Low'
 
-        pdf.cell(35, 10, date_str, border=1)
-        pdf.cell(40, 10, dept_str, border=1)
-        pdf.cell(90, 10, text, border=1)
+        pdf.cell(25, 10, date_str, border=1)
+        pdf.cell(35, 10, dept_str, border=1)
+        pdf.cell(80, 10, text, border=1)
         pdf.cell(25, 10, status, border=1)
+        pdf.cell(25, 10, urgency, border=1)
         pdf.ln()
 
     filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.pdf'

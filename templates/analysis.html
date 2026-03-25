@@ -52,16 +52,23 @@
         .neg-row { border-left: 4px solid var(--neg-color); } 
 
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* Sentiment Badges */
         .pos { background: #dcfce7; color: var(--pos-color); }
         .neg { background: #fee2e2; color: var(--neg-color); }
         .neu { background: #fef3c7; color: var(--neu-color); }
+        
+        /* Urgency Badges */
+        .urg-high { background: #fee2e2; color: #991b1b; border: 1px solid #f87171;}
+        .urg-med { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24;}
+        .urg-low { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;}
 
         @media (max-width: 768px) {
             body { padding: 20px 10px; }
             .kpi-grid { grid-template-columns: 1fr; }
             .charts-grid { grid-template-columns: 1fr; } 
             .table-panel { overflow-x: auto; }
-            table { min-width: 600px; } 
+            table { min-width: 700px; } 
             .header { flex-direction: column; gap: 15px; }
         }
     </style>
@@ -116,22 +123,28 @@
                         <th>Date</th>
                         <th>Patient Feedback</th>
                         <th>Status</th>
+                        <th>Urgency</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in feedbacks %}
-                    <tr class="{% if row[2] == 'Negative' %}neg-row{% endif %}">
-                        <td style="color: var(--text-muted); width: 120px; white-space: nowrap;">{{ row[4][:10] }}</td>
-                        <td>{{ row[1] }}</td>
+                    <tr class="{% if row[3] == 'Negative' %}neg-row{% endif %}">
+                        <td style="color: var(--text-muted); width: 120px; white-space: nowrap;">{{ row[0][:10] }}</td>
+                        <td>{{ row[2] }}</td>
                         <td style="width: 120px;">
-                            <span class="badge {% if row[2] == 'Positive' %}pos{% elif row[2] == 'Negative' %}neg{% else %}neu{% endif %}">
-                                {{ row[2] }}
+                            <span class="badge {% if row[3] == 'Positive' %}pos{% elif row[3] == 'Negative' %}neg{% else %}neu{% endif %}">
+                                {{ row[3] }}
+                            </span>
+                        </td>
+                        <td style="width: 120px;">
+                            <span class="badge {% if row[4] == 'High' %}urg-high{% elif row[4] == 'Medium' %}urg-med{% else %}urg-low{% endif %}">
+                                {{ row[4] }}
                             </span>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="3" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        <td colspan="4" style="text-align: center; padding: 40px; color: var(--text-muted);">
                             <i data-lucide="inbox" style="margin-bottom: 10px; width: 32px; height: 32px; color: #ccc;"></i><br>
                             No feedback recorded for this department yet.
                         </td>

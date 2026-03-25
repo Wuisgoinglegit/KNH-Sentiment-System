@@ -11,69 +11,52 @@
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        
-        :root {
-            --bg-light: #F4F7F9;        
-            --surface: #FFFFFF;         
-            --text-main: #00102E;       
-            --text-muted: #666666;      
-            --border: #E2E8F0;          
-            --accent: #87CEEC;          
-            --pos-color: #166534;       
-            --neg-color: #991b1b;       
-            --neu-color: #92400e;       
-        }
-
+        :root { --bg-light: #F4F7F9; --surface: #FFFFFF; --text-main: #00102E; --text-muted: #666666; --border: #E2E8F0; --accent: #87CEEC; --pos-color: #166534; --neg-color: #991b1b; --neu-color: #92400e; }
         body { background-color: var(--bg-light); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
-
         .sidebar { width: 260px; background-color: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; }
         .brand { padding: 25px 20px; border-bottom: 2px solid var(--border); text-align: center; }
         .brand img { height: 60px; width: auto; margin-bottom: 5px; } 
         .brand h2 { font-size: 14px; font-style: italic; color: var(--text-main); font-weight: bold; }
-        
         .menu-title { padding: 20px 20px 10px; font-size: 12px; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         .nav-list { flex: 1; overflow-y: auto; padding: 0 10px 20px; list-style: none; }
         .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; color: var(--text-main); font-weight: 500; text-decoration: none; border-radius: 8px; font-size: 14px; transition: 0.2s; margin-bottom: 4px; }
         .nav-item i { width: 18px; height: 18px; color: var(--text-muted); }
         .nav-item:hover { background-color: var(--accent); color: var(--text-main); }
         .nav-item:hover i { color: var(--text-main); }
-
         .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
-        
         .top-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; border-bottom: 2px solid var(--border); background: var(--surface); }
         .header-title { font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; color: var(--text-main); }
-        
         .user-nav { display: flex; align-items: center; gap: 15px; color: var(--text-main); font-weight: bold; }
         .logout-btn { background: transparent; border: 2px solid var(--text-main); color: var(--text-main); font-weight: bold; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; transition: 0.2s; }
         .logout-btn:hover { background: var(--text-main); color: var(--surface); }
-
         .dashboard-content { padding: 30px; display: flex; flex-direction: column; gap: 25px; }
-
         .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .kpi-card { background: var(--surface); padding: 25px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; border-left: 5px solid var(--text-main); }
         .kpi-info h3 { font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; font-weight: bold; }
         .kpi-info p { font-size: 32px; font-weight: bold; color: var(--text-main); transition: color 0.3s; }
         .kpi-icon { padding: 15px; border-radius: 12px; background: var(--bg-light); color: var(--text-main); }
-
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
         .panel h3 { font-size: 15px; color: var(--text-main); font-weight: bold; text-transform: uppercase; margin-bottom: 20px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;}
         .chart-container { position: relative; height: 250px; width: 100%; display: flex; justify-content: center; }
-
         .table-panel { width: 100%; }
         .table-container { overflow-x: auto; max-height: 350px; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { padding: 15px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12px; font-weight: bold; text-transform: uppercase; position: sticky; top: 0; background: var(--surface); z-index: 10;}
         td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text-main); transition: 0.2s;}
         tr:hover td { background-color: rgba(135, 206, 236, 0.2); } 
-        
         .dept-link { color: var(--text-main); text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 5px;}
         .dept-link:hover { color: var(--accent); }
-
         .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* Badges */
         .pos { background: #dcfce7; color: var(--pos-color); }
         .neg { background: #fee2e2; color: var(--neg-color); }
         .neu { background: #fef3c7; color: var(--neu-color); }
+        
+        .urg-high { background: #fee2e2; color: #991b1b; border: 1px solid #f87171;}
+        .urg-med { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24;}
+        .urg-low { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;}
 
         @media (max-width: 768px) {
             body { flex-direction: column; overflow-y: auto; height: auto; }
@@ -188,21 +171,27 @@
                                 <th>Department</th>
                                 <th>Patient Feedback</th>
                                 <th>Status</th>
+                                <th>Urgency</th>
                             </tr>
                         </thead>
                         <tbody id="feedback-table-body">
                             {% for row in feedbacks %}
                             <tr>
-                                <td style="color: var(--text-muted); white-space: nowrap;">{{ row[4][:10] }}</td>
+                                <td style="color: var(--text-muted); white-space: nowrap;">{{ row[0][:10] }}</td>
                                 <td>
-                                    <a href="/analysis/{{ row[3] }}" class="dept-link">
-                                        {{ row[3] }} <i data-lucide="external-link" style="width:12px; height:12px;"></i>
+                                    <a href="/analysis/{{ row[1] }}" class="dept-link">
+                                        {{ row[1] }} <i data-lucide="external-link" style="width:12px; height:12px;"></i>
                                     </a>
                                 </td>
-                                <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ row[1] }}</td>
+                                <td style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ row[2] }}</td>
                                 <td>
-                                    <span class="badge {% if row[2] == 'Positive' %}pos{% elif row[2] == 'Negative' %}neg{% else %}neu{% endif %}">
-                                        {{ row[2] }}
+                                    <span class="badge {% if row[3] == 'Positive' %}pos{% elif row[3] == 'Negative' %}neg{% else %}neu{% endif %}">
+                                        {{ row[3] }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if row[4] == 'High' %}urg-high{% elif row[4] == 'Medium' %}urg-med{% else %}urg-low{% endif %}">
+                                        {{ row[4] }}
                                     </span>
                                 </td>
                             </tr>
@@ -279,14 +268,18 @@
                         let dept = row[1];
                         let text = row[2];
                         let status = row[3];
+                        let urgency = row[4];
+                        
                         let badgeClass = status === 'Positive' ? 'pos' : (status === 'Negative' ? 'neg' : 'neu');
+                        let urgClass = urgency === 'High' ? 'urg-high' : (urgency === 'Medium' ? 'urg-med' : 'urg-low');
                         
                         newRows += `
                             <tr>
                                 <td style="color: var(--text-muted); white-space: nowrap;">${date}</td>
                                 <td><a href="/analysis/${dept}" class="dept-link">${dept}</a></td>
-                                <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</td>
+                                <td style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${text}</td>
                                 <td><span class="badge ${badgeClass}">${status}</span></td>
+                                <td><span class="badge ${urgClass}">${urgency}</span></td>
                             </tr>
                         `;
                     });

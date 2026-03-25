@@ -14,7 +14,7 @@ class SentimentEngine:
             print(f"Notice: ML Model not loaded correctly. ({e})")
             self.model = None
 
-        # --- MEGA HYBRID DICTIONARY ---
+        # MEGA HYBRID DICTIONARY (SENTIMENT)
         self.negative_keywords = [
             'zimechelewa', 'vichafu', 'ndefu', 'shida', 'mbaya', 'vibaya', 'uchungu', 
             'kungoja', 'kuzubaa', 'hakuna', 'bovu', 'chafu', 'harufu', 'kelele', 
@@ -39,72 +39,76 @@ class SentimentEngine:
             'just waiting', 'average', 'fine', 'sawa', 'kawaida'
         ]
 
+        # NEW: TRIAGE URGENCY DICTIONARY
+        self.urgent_high = [
+            'pain', 'uchungu', 'bleeding', 'damu', 'emergency', 'dharura', 'kufa', 
+            'mahututi', 'harufu', 'wizi', 'rushwa', 'hongo', 'matusi', 'terrible', 'worst'
+        ]
+        
+        self.urgent_medium = [
+            'slow', 'waited', 'zimechelewa', 'kungoja', 'late', 'delayed', 
+            'chafu', 'vichafu', 'uchafu', 'shida', 'bad', 'frustrating', 'bovu'
+        ]
+
     def clean_text(self, text):
         text = str(text).lower()
         text = re.sub(r"http\S+", "", text)
         text = re.sub(r"[^a-zA-Z\s]", "", text)
         return text
 
-    # NEW: Helper function to prevent the Scunthorpe Problem (substring matching)
     def contains_word(self, keyword, text):
-        # \b ensures we only match whole, standalone words
         pattern = r'\b' + re.escape(keyword) + r'\b'
         return re.search(pattern, text) is not None
 
     def predict(self, text):
-
-        print("\n--- NEW REVIEW INCOMING ---")
-        print(f"Original Text: {text}")
-
         cleaned_text = self.clean_text(text)
-        print(f"Cleaned Text: {cleaned_text}")
-
         raw_text_lower = str(text).lower()
         
-        pos_score = 0
-        neg_score = 0
-        neu_score = 0
+        pos_score = neg_score = neu_score = 0
 
-        # Tally Negative points
         for word in self.negative_keywords:
             if self.contains_word(word, cleaned_text) or self.contains_word(word, raw_text_lower):
-                print(f"[-] Matched Negative: {word}")
                 neg_score += 1
-
-        # Tally Positive points
         for word in self.positive_keywords:
             if self.contains_word(word, cleaned_text) or self.contains_word(word, raw_text_lower):
-                print(f"[+] Matched Positive: {word}")
                 pos_score += 1
-
-        # Tally Neutral points
         for word in self.neutral_keywords:
             if self.contains_word(word, cleaned_text) or self.contains_word(word, raw_text_lower):
-                print(f"[~] Matched Neutral: {word}")
                 neu_score += 1
 
         total_score = pos_score + neg_score + neu_score
         
         if total_score > 0:
-            print(f"HYBRID SCORES -> Pos: {pos_score}, Neg: {neg_score}, Neu: {neu_score}")
-            
-            if pos_score > 0 and pos_score == neg_score:
-                print("HYBRID RESULT: Neutral (Mixed feedback)")
-                return "Neutral"
-                
-            if neg_score > pos_score and neg_score >= neu_score:
-                print("HYBRID RESULT: Negative")
-                return "Negative"
-            elif pos_score > neg_score and pos_score >= neu_score:
-                print("HYBRID RESULT: Positive")
-                return "Positive"
-            else:
-                print("HYBRID RESULT: Neutral")
-                return "Neutral"
+            if pos_score > 0 and pos_score == neg_score: return "Neutral"
+            if neg_score > pos_score and neg_score >= neu_score: return "Negative"
+            elif pos_score > neg_score and pos_score >= neu_score: return "Positive"
+            else: return "Neutral"
 
         if self.model:
-            prediction = self.model.predict([cleaned_text])[0]
-            print(f"Model Prediction: {prediction}")
-            return prediction
+            return self.model.predict([cleaned_text])[0]
             
         return "Neutral"
+
+    # NEW: Determines urgency weight based on risk words
+    def predict_urgency(self, text, sentiment):
+        # Positive feedback doesn't need urgent fixing
+        if sentiment == 'Positive':
+            return 'Low'
+            
+        raw_text_lower = str(text).lower()
+        
+        # 1. Check for Critical issues first (Highest weight)
+        for word in self.urgent_high:
+            if self.contains_word(word, raw_text_lower):
+                return 'High'
+                
+        # 2. Check for Operational issues (Medium weight)
+        for word in self.urgent_medium:
+            if self.contains_word(word, raw_text_lower):
+                return 'Medium'
+                
+        # 3. Default fallback: All other negative issues get a medium priority
+        if sentiment == 'Negative':
+            return 'Medium'
+            
+        return 'Low'
