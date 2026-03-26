@@ -160,17 +160,19 @@ def login():
     if request.args.get('error') == 'invalid': error_msg = "Invalid Staff ID or Password."
 
     if request.method == 'POST':
-        staff_id = request.form.get('staffId').upper()
+        staff_id = request.form.get('staffId').upper() # Forces input to uppercase
         password = request.form.get('password')
         
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute('SELECT password_hash FROM admin_users WHERE staff_id = ?', (staff_id,))
+        # Case-insensitive lookup just in case older lowercase users exist
+        cursor.execute('SELECT password_hash, staff_id FROM admin_users WHERE UPPER(staff_id) = ?', (staff_id,))
         user_record = cursor.fetchone()
         conn.close()
 
         if user_record and check_password_hash(user_record[0], password):
-            session['staff_id'] = staff_id
+            # Save the exact matched ID into session to preserve their original casing if needed, but we check uppercase later
+            session['staff_id'] = user_record[1] 
             
             allowed = get_allowed_departments(staff_id)
             if 'All' in allowed:
@@ -191,7 +193,7 @@ def forgot_password():
             staff_id = request.form.get('staffId').upper()
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
-            cursor.execute('SELECT email FROM admin_users WHERE staff_id = ?', (staff_id,))
+            cursor.execute('SELECT email FROM admin_users WHERE UPPER(staff_id) = ?', (staff_id,))
             user = cursor.fetchone()
             conn.close()
 
@@ -230,7 +232,7 @@ def forgot_password():
             hashed_pw = generate_password_hash(new_password)
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
-            cursor.execute('UPDATE admin_users SET password_hash = ? WHERE staff_id = ?', (hashed_pw, session.get('reset_staff_id')))
+            cursor.execute('UPDATE admin_users SET password_hash = ? WHERE UPPER(staff_id) = ?', (hashed_pw, session.get('reset_staff_id')))
             conn.commit()
             conn.close()
             session.pop('reset_code', None)
@@ -243,10 +245,11 @@ def logout():
     session.pop('staff_id', None)
     return redirect(url_for('login'))
 
-# SUPER ADMIN: STAFF MANAGEMENT
+# SUPER ADMIN: STAFF MANAGEMENT (FIXED)
 @app.route('/manage_users')
 def manage_users():
-    if 'staff_id' not in session or not session['staff_id'].startswith('ADM'):
+    # FIX: Forces .upper() to ensure admin01 doesn't get kicked out!
+    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
         return redirect(url_for('dashboard')) 
         
     conn = sqlite3.connect(DB_NAME)
@@ -262,7 +265,7 @@ def manage_users():
 
 @app.route('/admin/add_user', methods=['POST'])
 def admin_add_user():
-    if 'staff_id' not in session or not session['staff_id'].startswith('ADM'):
+    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
         return redirect(url_for('dashboard'))
         
     new_staff_id = request.form.get('staffId').upper()
@@ -272,7 +275,7 @@ def admin_add_user():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    cursor.execute('SELECT * FROM admin_users WHERE staff_id = ?', (new_staff_id,))
+    cursor.execute('SELECT * FROM admin_users WHERE UPPER(staff_id) = ?', (new_staff_id,))
     if cursor.fetchone():
         conn.close()
         return redirect(url_for('manage_users', error='exists'))
@@ -286,15 +289,15 @@ def admin_add_user():
 
 @app.route('/admin/delete_user/<staff_id_to_delete>', methods=['POST'])
 def admin_delete_user(staff_id_to_delete):
-    if 'staff_id' not in session or not session['staff_id'].startswith('ADM'):
+    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
         return redirect(url_for('dashboard'))
         
-    if staff_id_to_delete == session['staff_id']:
+    if staff_id_to_delete.upper() == session['staff_id'].upper():
         return redirect(url_for('manage_users', error='self_delete'))
         
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM admin_users WHERE staff_id = ?", (staff_id_to_delete,))
+    cursor.execute("DELETE FROM admin_users WHERE UPPER(staff_id) = ?", (staff_id_to_delete.upper(),))
     conn.commit()
     conn.close()
     

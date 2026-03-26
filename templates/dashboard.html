@@ -11,7 +11,8 @@
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
-        :root { --bg-light: #F4F7F9; --surface: #FFFFFF; --text-main: #00102E; --text-muted: #666666; --border: #E2E8F0; --accent: #87CEEC; --pos-color: #166534; --neg-color: #991b1b; --neu-color: #92400e; }
+        /* FIX: Restored --bg-light to #EBF8FF */
+        :root { --bg-light: #EBF8FF; --surface: #FFFFFF; --text-main: #00102E; --text-muted: #666666; --border: #E2E8F0; --accent: #87CEEC; --pos-color: #166534; --neg-color: #991b1b; --neu-color: #92400e; }
         body { background-color: var(--bg-light); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
         .sidebar { width: 260px; background-color: var(--surface); border-right: 2px solid var(--border); display: flex; flex-direction: column; }
         .brand { padding: 25px 20px; border-bottom: 2px solid var(--border); text-align: center; }
@@ -140,7 +141,7 @@
                 <li><a href="/analysis/Billing" class="nav-item"><i data-lucide="credit-card"></i> Billing</a></li>
             {% endif %}
 
-            {% if session['staff_id'].startswith('ADM') %}
+            {% if session['staff_id'].upper().startswith('ADM') %}
                 <li><a href="/manage_users" class="nav-item" style="color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; margin-top: 15px;"><i data-lucide="shield-alert" style="color: #991b1b;"></i> Staff Management</a></li>
             {% endif %}
         </ul>
