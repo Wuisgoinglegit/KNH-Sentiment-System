@@ -82,25 +82,25 @@ def get_allowed_departments(staff_id):
         
     # 3. Front Office & Financial Operations (Strictly non-clinical)
     if sid.startswith('REC'):   
-        return ['Reception', 'Outpatient'] # Reception handles front desk & general outpatient flow
+        return ['Reception', 'Outpatient'] 
     if sid.startswith('BIL'):   
         return ['Billing']
         
-    # 4. Broad Clinical Roles (Nurses)
-    if sid.startswith('NUR'):
+    # 4. Broad Clinical Roles (Nurses & General Practitioners)
+    # FIX: Grouped DOC with NUR to grant full access to the 8 broad clinical wards
+    if sid.startswith('NUR') or sid.startswith('DOC'):
         return ['Ward', 'Emergency', 'Maternity', 'Pediatrics', 'Outpatient', 'ICU', 'Renal', 'Oncology']
         
     # 5. Doctors (Specialty + General Side Base)
     # The General Side: Where doctors do rounds or respond to codes
     doc_base = ['Outpatient', 'Emergency', 'Ward', 'ICU']
     
-    if sid.startswith('DOC'):   return doc_base # General Practitioner
     if sid.startswith('SURG'):  return ['Surgery'] + doc_base
     if sid.startswith('MAT'):   return ['Maternity'] + doc_base
     if sid.startswith('PED'):   return ['Pediatrics'] + doc_base
     if sid.startswith('ONC'):   return ['Oncology'] + doc_base
     if sid.startswith('REN'):   return ['Renal'] + doc_base
-    if sid.startswith('DENT'):  return ['Dental', 'Outpatient'] # Dentists usually stay in their clinic/outpatient
+    if sid.startswith('DENT'):  return ['Dental', 'Outpatient'] 
     
     # 6. Diagnostic & Support Roles (Strictly Compartmentalized)
     if sid.startswith('PHARM'): return ['Pharmacy']
