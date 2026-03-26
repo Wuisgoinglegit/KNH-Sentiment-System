@@ -72,29 +72,13 @@ init_db()
 def get_allowed_departments(staff_id):
     sid = str(staff_id).upper()
     
-    # 1. IT SUPER ADMIN (Full Data Access + Staff Management Portal)
-    if sid.startswith('ADM'):
-        return ['All']
+    if sid.startswith('ADM'): return ['All']
+    if sid.startswith('EXEC') or sid.startswith('QA'): return ['All']
+    if sid.startswith('REC'): return ['Reception', 'Outpatient'] 
+    if sid.startswith('BIL'): return ['Billing']
+    if sid.startswith('NUR') or sid.startswith('DOC'): return ['Ward', 'Emergency', 'Maternity', 'Pediatrics', 'Outpatient', 'ICU', 'Renal', 'Oncology']
         
-    # 2. EXECUTIVE ADMIN (CEO, CMO, QA - Full Data Access, NO Staff Management)
-    if sid.startswith('EXEC') or sid.startswith('QA'):
-        return ['All']
-        
-    # 3. Front Office & Financial Operations (Strictly non-clinical)
-    if sid.startswith('REC'):   
-        return ['Reception', 'Outpatient'] 
-    if sid.startswith('BIL'):   
-        return ['Billing']
-        
-    # 4. Broad Clinical Roles (Nurses & General Practitioners)
-    # FIX: Grouped DOC with NUR to grant full access to the 8 broad clinical wards
-    if sid.startswith('NUR') or sid.startswith('DOC'):
-        return ['Ward', 'Emergency', 'Maternity', 'Pediatrics', 'Outpatient', 'ICU', 'Renal', 'Oncology']
-        
-    # 5. Doctors (Specialty + General Side Base)
-    # The General Side: Where doctors do rounds or respond to codes
     doc_base = ['Outpatient', 'Emergency', 'Ward', 'ICU']
-    
     if sid.startswith('SURG'):  return ['Surgery'] + doc_base
     if sid.startswith('MAT'):   return ['Maternity'] + doc_base
     if sid.startswith('PED'):   return ['Pediatrics'] + doc_base
@@ -102,12 +86,9 @@ def get_allowed_departments(staff_id):
     if sid.startswith('REN'):   return ['Renal'] + doc_base
     if sid.startswith('DENT'):  return ['Dental', 'Outpatient'] 
     
-    # 6. Diagnostic & Support Roles (Strictly Compartmentalized)
     if sid.startswith('PHARM'): return ['Pharmacy']
     if sid.startswith('LAB'):   return ['Laboratory']
     if sid.startswith('RAD'):   return ['Radiology']
-    
-    # Fallback security if prefix is unrecognized
     return ['Outpatient']
 
 @app.context_processor
@@ -161,7 +142,6 @@ def submit_feedback():
 def login():
     success_msg = None
     if request.args.get('reset') == 'success': success_msg = "Password reset successfully! Please log in."
-        
     error_msg = None
     if request.args.get('error') == 'invalid': error_msg = "Invalid Staff ID or Password."
 
@@ -177,12 +157,9 @@ def login():
 
         if user_record and check_password_hash(user_record[0], password):
             session['staff_id'] = user_record[1] 
-            
             allowed = get_allowed_departments(staff_id)
-            if 'All' in allowed:
-                return redirect(url_for('dashboard'))
-            else:
-                return redirect(url_for('department_analysis', dept_name=allowed[0]))
+            if 'All' in allowed: return redirect(url_for('dashboard'))
+            else: return redirect(url_for('department_analysis', dept_name=allowed[0]))
         else:
             return redirect(url_for('login', error='invalid'))
     return render_template('login.html', error_msg=error_msg, success_msg=success_msg)
@@ -191,7 +168,6 @@ def login():
 def forgot_password():
     step = request.args.get('step', 'request')
     error_msg = None
-
     if request.method == 'POST':
         if step == 'request':
             staff_id = request.form.get('staffId').upper()
@@ -205,7 +181,6 @@ def forgot_password():
                 code = str(random.randint(100000, 999999))
                 session['reset_code'] = code
                 session['reset_staff_id'] = staff_id
-                
                 try:
                     sender_email = os.getenv("SENDER_EMAIL")
                     app_password = os.getenv("EMAIL_APP_PASSWORD")
@@ -218,18 +193,15 @@ def forgot_password():
                     server.login(sender_email, app_password)
                     server.send_message(msg)
                     server.quit()
-                except Exception as e:
-                    pass
+                except Exception as e: pass
                 return redirect(url_for('forgot_password', step='verify'))
             else:
                 error_msg = "Staff ID not found or no email registered."
 
         elif step == 'verify':
             entered_code = request.form.get('code')
-            if entered_code == session.get('reset_code'):
-                return redirect(url_for('forgot_password', step='reset'))
-            else:
-                error_msg = "Invalid verification code."
+            if entered_code == session.get('reset_code'): return redirect(url_for('forgot_password', step='reset'))
+            else: error_msg = "Invalid verification code."
 
         elif step == 'reset':
             new_password = request.form.get('new_password')
@@ -252,72 +224,70 @@ def logout():
 # SUPER ADMIN: STAFF MANAGEMENT 
 @app.route('/manage_users')
 def manage_users():
-    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
-        return redirect(url_for('dashboard')) 
-        
+    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'): return redirect(url_for('dashboard')) 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT admin_id, staff_id, email FROM admin_users ORDER BY admin_id DESC")
     users = cursor.fetchall()
     conn.close()
-    
-    success = request.args.get('success')
-    error = request.args.get('error')
-    
-    return render_template('manage_users.html', users=users, staff_id=session['staff_id'], success=success, error=error)
+    return render_template('manage_users.html', users=users, staff_id=session['staff_id'], success=request.args.get('success'), error=request.args.get('error'))
 
 @app.route('/admin/add_user', methods=['POST'])
 def admin_add_user():
-    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
-        return redirect(url_for('dashboard'))
-        
+    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'): return redirect(url_for('dashboard'))
     new_staff_id = request.form.get('staffId').upper()
     email = request.form.get('email')
     password = request.form.get('password')
-    
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
     cursor.execute('SELECT * FROM admin_users WHERE UPPER(staff_id) = ?', (new_staff_id,))
     if cursor.fetchone():
         conn.close()
         return redirect(url_for('manage_users', error='exists'))
-        
     hashed_pw = generate_password_hash(password)
     cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', (new_staff_id, email, hashed_pw))
     conn.commit()
     conn.close()
-    
     return redirect(url_for('manage_users', success='added'))
 
 @app.route('/admin/delete_user/<staff_id_to_delete>', methods=['POST'])
 def admin_delete_user(staff_id_to_delete):
-    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
-        return redirect(url_for('dashboard'))
-        
-    if staff_id_to_delete.upper() == session['staff_id'].upper():
-        return redirect(url_for('manage_users', error='self_delete'))
-        
+    if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'): return redirect(url_for('dashboard'))
+    if staff_id_to_delete.upper() == session['staff_id'].upper(): return redirect(url_for('manage_users', error='self_delete'))
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM admin_users WHERE UPPER(staff_id) = ?", (staff_id_to_delete.upper(),))
     conn.commit()
     conn.close()
-    
     return redirect(url_for('manage_users', success='deleted'))
 
-# DASHBOARD & ANALYSIS ROUTES
+# DASHBOARD, ANALYSIS & EDIT ROUTES
+@app.route('/edit_feedback', methods=['POST'])
+def edit_feedback():
+    if 'staff_id' not in session: return redirect(url_for('login'))
+    f_id = request.form.get('feedback_id')
+    new_status = request.form.get('status')
+    new_urgency = request.form.get('urgency')
+    return_url = request.form.get('return_url')
+    
+    if f_id and new_status and new_urgency:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE patient_feedback SET sentiment_label=?, urgency_level=? WHERE feedback_id=?", (new_status, new_urgency, f_id))
+        conn.commit()
+        conn.close()
+        
+    return redirect(return_url or url_for('dashboard'))
+
 @app.route('/dashboard')
 def dashboard():
     if 'staff_id' not in session: return redirect(url_for('login'))
-    
     allowed = get_allowed_departments(session['staff_id'])
-    if 'All' not in allowed:
-        return redirect(url_for('department_analysis', dept_name=allowed[0]))
+    if 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
+    cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     feedbacks = cursor.fetchall()
     cursor.execute('SELECT COUNT(*) FROM patient_feedback')
     total = cursor.fetchone()[0] or 0
@@ -333,7 +303,6 @@ def dashboard():
 @app.route('/api/dashboard_data')
 def api_dashboard_data():
     if 'staff_id' not in session: return jsonify({'error': 'Unauthorized'}), 401
-    
     allowed = get_allowed_departments(session['staff_id'])
     if 'All' not in allowed: return jsonify({'error': 'Forbidden'}), 403
 
@@ -347,7 +316,7 @@ def api_dashboard_data():
     neg_count = cursor.fetchone()[0] or 0
     neu_count = total - (pos_count + neg_count)
     pos_percent = round((pos_count / total * 100), 1) if total > 0 else 0
-    cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
+    cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
     recent_feedbacks = cursor.fetchall()
     conn.close()
     return jsonify({'total': total, 'pos_percent': pos_percent, 'pos_count': pos_count, 'neg_count': neg_count, 'neu_count': neu_count, 'feedbacks': recent_feedbacks})
@@ -355,14 +324,12 @@ def api_dashboard_data():
 @app.route('/analysis/<dept_name>')
 def department_analysis(dept_name):
     if 'staff_id' not in session: return redirect(url_for('login'))
-    
     allowed = get_allowed_departments(session['staff_id'])
-    if 'All' not in allowed and dept_name not in allowed:
-        return redirect(url_for('department_analysis', dept_name=allowed[0]))
+    if 'All' not in allowed and dept_name not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", ('%' + dept_name + '%',))
+    cursor.execute("SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", ('%' + dept_name + '%',))
     dept_feedbacks = cursor.fetchall()
     cursor.execute("SELECT COUNT(*) FROM patient_feedback WHERE dept_category LIKE ?", ('%' + dept_name + '%',))
     total_dept = cursor.fetchone()[0] or 0
@@ -379,24 +346,22 @@ def department_analysis(dept_name):
 def export_csv():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
-    
     allowed = get_allowed_departments(session['staff_id'])
     if dept == 'All' and 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     if dept != 'All' and 'All' not in allowed and dept not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    if dept == 'All':
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
-    else:
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+    if dept == 'All': cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
+    else: cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
     feedbacks = cursor.fetchall()
     conn.close()
+    
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Date', 'Department', 'Patient Feedback', 'Status', 'Urgency'])
     for row in feedbacks:
-        cw.writerow([row[0], row[1], row[2], row[3], row[4]])
+        cw.writerow([row[1], row[2], row[3], row[4], row[5]])
     filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.csv'
     response = make_response(si.getvalue())
     response.headers.set('Content-Disposition', 'attachment', filename=filename)
@@ -406,8 +371,7 @@ def export_csv():
 class KNH_PDF(FPDF):
     def header(self):
         logo_path = os.path.join(app.root_path, 'static', 'kenyatta-national-hospital-seeklogo.png')
-        if os.path.exists(logo_path):
-            self.image(logo_path, 10, 8, 25)
+        if os.path.exists(logo_path): self.image(logo_path, 10, 8, 25)
         self.set_y(12)
         self.set_x(40)
         self.set_font('helvetica', 'B', 14)
@@ -421,7 +385,6 @@ class KNH_PDF(FPDF):
         self.set_line_width(1)
         self.line(10, 38, 200, 38)
         self.set_y(45)
-
     def footer(self):
         self.set_y(-15)
         self.set_font('helvetica', 'I', 8)
@@ -431,23 +394,20 @@ class KNH_PDF(FPDF):
 def export_pdf():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
-    
     allowed = get_allowed_departments(session['staff_id'])
     if dept == 'All' and 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     if dept != 'All' and 'All' not in allowed and dept not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    if dept == 'All':
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
-    else:
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+    if dept == 'All': cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
+    else: cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
     feedbacks = cursor.fetchall()
     conn.close()
 
-    pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
-    neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
-    neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
+    pos_count = sum(1 for r in feedbacks if r[4] == 'Positive')
+    neu_count = sum(1 for r in feedbacks if r[4] == 'Neutral')
+    neg_count = sum(1 for r in feedbacks if r[4] == 'Negative')
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
     labels = ['Positive', 'Neutral', 'Negative']
@@ -478,7 +438,6 @@ def export_pdf():
 
     pdf = KNH_PDF()
     pdf.add_page()
-    
     pdf.set_font("helvetica", "B", 16)
     title = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis"
     pdf.cell(0, 10, title, align="C")
@@ -499,20 +458,17 @@ def export_pdf():
     pdf.ln()
 
     pdf.set_font("helvetica", "", 8)
-    
     for row in feedbacks:
-        date_str = row[0][:10]
-        dept_str = row[1]
-        raw_text = row[2].encode('latin-1', 'ignore').decode('latin-1')
-        status = row[3]
-        urgency = row[4] if row[4] else 'Low'
+        date_str = row[1][:10]
+        dept_str = row[2]
+        raw_text = row[3].encode('latin-1', 'ignore').decode('latin-1')
+        status = row[4]
+        urgency = row[5] if row[5] else 'Low'
 
         fb_lines = textwrap.wrap(raw_text, width=45)
         if not fb_lines: fb_lines = [""]
-        
         dept_lines = textwrap.wrap(dept_str, width=20)
         if not dept_lines: dept_lines = [""]
-        
         max_lines = max(len(fb_lines), len(dept_lines))
 
         for i in range(max_lines):
@@ -521,10 +477,8 @@ def export_pdf():
             t_urgency = urgency if i == 0 else ""
             t_dept = dept_lines[i] if i < len(dept_lines) else ""
             t_fb = fb_lines[i] if i < len(fb_lines) else ""
-            
             b_style = 'LTR' if i == 0 else 'LR'
             if i == max_lines - 1: b_style = 'LTRB' if max_lines == 1 else 'LRB'
-
             pdf.cell(25, 6, t_date, border=b_style)
             pdf.cell(35, 6, t_dept, border=b_style)
             pdf.cell(80, 6, t_fb, border=b_style)
@@ -542,23 +496,20 @@ def export_pdf():
 def export_word():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
-    
     allowed = get_allowed_departments(session['staff_id'])
     if dept == 'All' and 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     if dept != 'All' and 'All' not in allowed and dept not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    if dept == 'All':
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
-    else:
-        cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
+    if dept == 'All': cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC')
+    else: cursor.execute('SELECT feedback_id, timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC', ('%' + dept + '%',))
     feedbacks = cursor.fetchall()
     conn.close()
 
-    pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
-    neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
-    neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
+    pos_count = sum(1 for r in feedbacks if r[4] == 'Positive')
+    neu_count = sum(1 for r in feedbacks if r[4] == 'Neutral')
+    neg_count = sum(1 for r in feedbacks if r[4] == 'Negative')
     
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
     labels = ['Positive', 'Neutral', 'Negative']
@@ -588,7 +539,6 @@ def export_word():
     plt.close()
 
     doc = Document()
-    
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(9)
@@ -597,7 +547,6 @@ def export_word():
     header_table.autofit = False
     header_table.columns[0].width = Inches(1.2)
     header_table.columns[1].width = Inches(5.0)
-    
     cell_logo = header_table.cell(0, 0)
     cell_text = header_table.cell(0, 1)
     
@@ -647,18 +596,17 @@ def export_word():
     
     for cell in hdr_cells:
         for paragraph in cell.paragraphs:
-            for run in paragraph.runs:
-                run.bold = True
+            for run in paragraph.runs: run.bold = True
         shd = parse_xml(r'<w:shd {} w:fill="E2E8F0"/>'.format(nsdecls('w')))
         cell._tc.get_or_add_tcPr().append(shd)
 
     for row in feedbacks:
         row_cells = table.add_row().cells
-        row_cells[0].text = str(row[0][:10])
-        row_cells[1].text = str(row[1])
-        row_cells[2].text = str(row[2])
-        row_cells[3].text = str(row[3])
-        row_cells[4].text = str(row[4] if row[4] else 'Low')
+        row_cells[0].text = str(row[1][:10])
+        row_cells[1].text = str(row[2])
+        row_cells[2].text = str(row[3])
+        row_cells[3].text = str(row[4])
+        row_cells[4].text = str(row[5] if row[5] else 'Low')
 
     mem_stream = io.BytesIO()
     doc.save(mem_stream)
