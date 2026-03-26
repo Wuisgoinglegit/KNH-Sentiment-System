@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
 
 # IMPORTS FOR REAL EMAIL
 import smtplib
@@ -398,7 +400,8 @@ def export_pdf():
     pdf.set_font("helvetica", "", 8)
     for row in feedbacks:
         date_str = row[0][:10]
-        dept_str = row[1][:20] 
+        # FIX: Increased slice from 20 to 30 so Laboratory doesn't truncate to Laborato
+        dept_str = row[1][:30] + "..." if len(row[1]) > 30 else row[1]
         raw_text = row[2].encode('latin-1', 'ignore').decode('latin-1')
         text = raw_text[:45] + "..." if len(raw_text) > 45 else raw_text
         status = row[3]
@@ -431,6 +434,38 @@ def export_word():
     feedbacks = cursor.fetchall()
     conn.close()
 
+    # MATPLOTLIB CHART GENERATION FOR WORD 
+    pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
+    neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
+    neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+    labels = ['Positive', 'Neutral', 'Negative']
+    raw_sizes = [pos_count, neu_count, neg_count]
+    colors = ['#4ade80', '#fcd34d', '#f87171']
+    
+    pie_labels = [l for s, l in zip(raw_sizes, labels) if s > 0]
+    pie_sizes = [s for s in raw_sizes if s > 0]
+    pie_colors = [c for s, c in zip(raw_sizes, colors) if s > 0]
+
+    if sum(raw_sizes) == 0:
+        pie_sizes = [1, 1, 1]
+        pie_labels = ['No Data', '', '']
+        pie_colors = ['#E2E8F0', '#E2E8F0', '#E2E8F0']
+        ax2.set_ylim(0, 1) 
+    
+    ax1.pie(pie_sizes, labels=pie_labels, colors=pie_colors, autopct='%1.1f%%', startangle=90)
+    ax1.axis('equal')
+    ax1.set_title('Sentiment Breakdown')
+    
+    bar_colors = colors if sum(raw_sizes) > 0 else ['#E2E8F0', '#E2E8F0', '#E2E8F0']
+    ax2.bar(labels, raw_sizes, color=bar_colors)
+    ax2.set_title('Sentiment Volume')
+
+    chart_path = os.path.join(app.root_path, 'static', f'temp_chart_export.png')
+    plt.savefig(chart_path, bbox_inches='tight')
+    plt.close()
+
     doc = Document()
     
     # Setup Letterhead using an invisible 2-column table
@@ -458,6 +493,13 @@ def export_word():
     title = doc.add_heading(title_text, level=1)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
+    # Add the generated charts to the Word doc
+    if os.path.exists(chart_path):
+        doc.add_picture(chart_path, width=Inches(6.0))
+        doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    doc.add_paragraph() # Spacing
+    
     # Create Data Table
     table = doc.add_table(rows=1, cols=5)
     table.style = 'Table Grid'
@@ -468,10 +510,13 @@ def export_word():
     hdr_cells[3].text = 'Status'
     hdr_cells[4].text = 'Urgency'
     
+    # Add light gray shading to the Word table headers
     for cell in hdr_cells:
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.bold = True
+        shd = parse_xml(r'<w:shd {} w:fill="E2E8F0"/>'.format(nsdecls('w')))
+        cell._tc.get_or_add_tcPr().append(shd)
 
     for row in feedbacks:
         row_cells = table.add_row().cells
