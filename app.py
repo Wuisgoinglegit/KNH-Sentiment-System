@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import csv
 from io import StringIO
 from fpdf import FPDF
+import textwrap # NEW: Used for wrapping PDF text to multiple lines!
 import matplotlib
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
@@ -390,29 +391,49 @@ def export_pdf():
     pdf.set_font("helvetica", "B", 9)
     pdf.set_fill_color(226, 232, 240) 
     
-    pdf.cell(25, 10, "Date", border=1, fill=True)
-    pdf.cell(35, 10, "Department", border=1, fill=True)
-    pdf.cell(80, 10, "Feedback", border=1, fill=True)
-    pdf.cell(25, 10, "Status", border=1, fill=True)
-    pdf.cell(25, 10, "Urgency", border=1, fill=True)
+    pdf.cell(25, 6, "Date", border=1, fill=True)
+    pdf.cell(35, 6, "Department", border=1, fill=True)
+    pdf.cell(80, 6, "Feedback", border=1, fill=True)
+    pdf.cell(25, 6, "Status", border=1, fill=True)
+    pdf.cell(25, 6, "Urgency", border=1, fill=True)
     pdf.ln()
 
     pdf.set_font("helvetica", "", 8)
+    
+    # NEW: Advanced text wrapping to prevent cutoff in PDF!
     for row in feedbacks:
         date_str = row[0][:10]
-        # FIX: Increased slice from 20 to 30 so Laboratory doesn't truncate to Laborato
-        dept_str = row[1][:30] + "..." if len(row[1]) > 30 else row[1]
+        dept_str = row[1]
         raw_text = row[2].encode('latin-1', 'ignore').decode('latin-1')
-        text = raw_text[:45] + "..." if len(raw_text) > 45 else raw_text
         status = row[3]
         urgency = row[4] if row[4] else 'Low'
 
-        pdf.cell(25, 10, date_str, border=1)
-        pdf.cell(35, 10, dept_str, border=1)
-        pdf.cell(80, 10, text, border=1)
-        pdf.cell(25, 10, status, border=1)
-        pdf.cell(25, 10, urgency, border=1)
-        pdf.ln()
+        fb_lines = textwrap.wrap(raw_text, width=45)
+        if not fb_lines: fb_lines = [""]
+        
+        dept_lines = textwrap.wrap(dept_str, width=20)
+        if not dept_lines: dept_lines = [""]
+        
+        max_lines = max(len(fb_lines), len(dept_lines))
+
+        for i in range(max_lines):
+            # Fetch text for this specific line inside the cell
+            t_date = date_str if i == 0 else ""
+            t_status = status if i == 0 else ""
+            t_urgency = urgency if i == 0 else ""
+            t_dept = dept_lines[i] if i < len(dept_lines) else ""
+            t_fb = fb_lines[i] if i < len(fb_lines) else ""
+            
+            # Setup logical borders so it looks like one solid box
+            b_style = 'LTR' if i == 0 else 'LR'
+            if i == max_lines - 1: b_style = 'LTRB' if max_lines == 1 else 'LRB'
+
+            pdf.cell(25, 6, t_date, border=b_style)
+            pdf.cell(35, 6, t_dept, border=b_style)
+            pdf.cell(80, 6, t_fb, border=b_style)
+            pdf.cell(25, 6, t_status, border=b_style)
+            pdf.cell(25, 6, t_urgency, border=b_style)
+            pdf.ln()
 
     filename = f'KNH_Feedback_Report_{dept.replace(" ", "_")}.pdf'
     response = make_response(bytes(pdf.output()))
@@ -434,7 +455,6 @@ def export_word():
     feedbacks = cursor.fetchall()
     conn.close()
 
-    # MATPLOTLIB CHART GENERATION FOR WORD 
     pos_count = sum(1 for r in feedbacks if r[3] == 'Positive')
     neu_count = sum(1 for r in feedbacks if r[3] == 'Neutral')
     neg_count = sum(1 for r in feedbacks if r[3] == 'Negative')
@@ -468,9 +488,17 @@ def export_word():
 
     doc = Document()
     
-    # Setup Letterhead using an invisible 2-column table
+    # NEW: Force the entire document to use Arial (Helvetica-equivalent) to match PDF
+    style = doc.styles['Normal']
+    style.font.name = 'Arial'
+    style.font.size = Pt(9)
+    
+    # NEW: Fixed Letterhead table formatting to perfectly align the Logo
     header_table = doc.add_table(rows=1, cols=2)
-    header_table.autofit = True
+    header_table.autofit = False
+    header_table.columns[0].width = Inches(1.2)
+    header_table.columns[1].width = Inches(5.0)
+    
     cell_logo = header_table.cell(0, 0)
     cell_text = header_table.cell(0, 1)
     
@@ -487,22 +515,32 @@ def export_word():
     run_info = p.add_run("P.O. Box 20723-00202 Nairobi\nTel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke")
     run_info.font.size = Pt(10)
     
-    doc.add_paragraph("_" * 75)
+    # NEW: Creates a real horizontal line in Word Document exactly like the PDF
+    line_paragraph = doc.add_paragraph()
+    p_format = line_paragraph.paragraph_format
+    p_format.space_after = Pt(10)
+    pBdr = parse_xml(r'<w:pBdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:bottom w:val="single" w:sz="18" w:space="1" w:color="00102E"/></w:pBdr>')
+    line_paragraph._p.get_or_add_pPr().append(pBdr)
     
     title_text = f"Patient Feedback Report - {dept} Department" if dept != 'All' else "Patient Feedback Analysis"
     title = doc.add_heading(title_text, level=1)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     
-    # Add the generated charts to the Word doc
     if os.path.exists(chart_path):
         doc.add_picture(chart_path, width=Inches(6.0))
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    doc.add_paragraph() # Spacing
+    doc.add_paragraph() 
     
-    # Create Data Table
+    # NEW: Lock Word table column widths to match PDF exactly
     table = doc.add_table(rows=1, cols=5)
     table.style = 'Table Grid'
+    table.autofit = False
+    
+    widths = [Inches(0.8), Inches(1.2), Inches(3.0), Inches(0.8), Inches(0.8)]
+    for i, col in enumerate(table.columns):
+        col.width = widths[i]
+        
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Date'
     hdr_cells[1].text = 'Department'
@@ -510,7 +548,6 @@ def export_word():
     hdr_cells[3].text = 'Status'
     hdr_cells[4].text = 'Urgency'
     
-    # Add light gray shading to the Word table headers
     for cell in hdr_cells:
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:

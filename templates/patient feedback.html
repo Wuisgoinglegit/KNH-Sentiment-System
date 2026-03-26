@@ -44,7 +44,6 @@
         .contact-info p { font-size: 14px; line-height: 1.6; margin-bottom: 4px; color: #e0e0e0; }
         .footer-logo img { height: 70px; }
 
-        /* NEW: Mobile Responsiveness Rules added back in */
         @media (max-width: 768px) {
             .portal-header { padding: 15px 20px; }
             .brand-container img { height: 50px; }
@@ -75,7 +74,14 @@
             {% if success %}
                 <div style="text-align: center;">
                     <h2 style="color: #00102E;">Response Recorded</h2>
-                    <p style="margin: 20px 0;">Thank you. Your response regarding: <br><strong>{{ dept_name }}</strong><br> has been successfully submitted.</p>
+                    
+                    <div style="margin: 20px auto; width: 64px; height: 64px; background-color: #dcfce7; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(22, 101, 52, 0.1);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+
+                    <p style="margin: 20px 0; font-size: 16px;">Thank you. Your response regarding: <br><strong style="color: #00102E; font-size: 18px; line-height: 1.8;">{{ dept_name }}</strong><br> has been successfully submitted.</p>
                     <a href="/" class="btn-submit">Submit Another Review</a>
                 </div>
             {% else %}
