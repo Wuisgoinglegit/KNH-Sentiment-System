@@ -72,37 +72,43 @@ init_db()
 def get_allowed_departments(staff_id):
     sid = str(staff_id).upper()
     
-    # 1. Full Access "Super Users"
-    if sid.startswith('ADM') or sid.startswith('QA'):
+    # 1. IT SUPER ADMIN (Full Data Access + Staff Management Portal)
+    if sid.startswith('ADM'):
         return ['All']
         
-    # 2. Front Office & Operations (Strictly non-clinical)
+    # 2. EXECUTIVE ADMIN (CEO, CMO, QA - Full Data Access, NO Staff Management)
+    if sid.startswith('EXEC') or sid.startswith('QA'):
+        return ['All']
+        
+    # 3. Front Office & Financial Operations (Strictly non-clinical)
     if sid.startswith('REC'):   
-        return ['Reception', 'General', 'Outpatient'] 
+        return ['Reception', 'Outpatient'] # Reception handles front desk & general outpatient flow
     if sid.startswith('BIL'):   
         return ['Billing']
         
-    # 3. Wide Access Roles (Nurses)
+    # 4. Broad Clinical Roles (Nurses)
     if sid.startswith('NUR'):
-        return ['Ward', 'Emergency', 'Maternity', 'Pediatrics', 'Outpatient', 'ICU']
+        return ['Ward', 'Emergency', 'Maternity', 'Pediatrics', 'Outpatient', 'ICU', 'Renal', 'Oncology']
         
-    # 4. Doctors (Specialty + General/On-Call Base)
-    doc_base = ['Outpatient', 'Emergency', 'ICU', 'Ward']
+    # 5. Doctors (Specialty + General Side Base)
+    # The General Side: Where doctors do rounds or respond to codes
+    doc_base = ['Outpatient', 'Emergency', 'Ward', 'ICU']
     
-    if sid.startswith('DOC'):   return ['Outpatient', 'Emergency', 'ICU', 'Ward']
+    if sid.startswith('DOC'):   return doc_base # General Practitioner
     if sid.startswith('SURG'):  return ['Surgery'] + doc_base
-    if sid.startswith('PED'):   return ['Pediatrics'] + doc_base
     if sid.startswith('MAT'):   return ['Maternity'] + doc_base
+    if sid.startswith('PED'):   return ['Pediatrics'] + doc_base
     if sid.startswith('ONC'):   return ['Oncology'] + doc_base
     if sid.startswith('REN'):   return ['Renal'] + doc_base
-    if sid.startswith('DENT'):  return ['Dental'] + doc_base
+    if sid.startswith('DENT'):  return ['Dental', 'Outpatient'] # Dentists usually stay in their clinic/outpatient
     
-    # 5. Strict Single-Department Roles (Techs & Pharmacists)
+    # 6. Diagnostic & Support Roles (Strictly Compartmentalized)
     if sid.startswith('PHARM'): return ['Pharmacy']
     if sid.startswith('LAB'):   return ['Laboratory']
     if sid.startswith('RAD'):   return ['Radiology']
     
-    return ['Ward']
+    # Fallback security if prefix is unrecognized
+    return ['Outpatient']
 
 @app.context_processor
 def inject_access():
@@ -160,18 +166,16 @@ def login():
     if request.args.get('error') == 'invalid': error_msg = "Invalid Staff ID or Password."
 
     if request.method == 'POST':
-        staff_id = request.form.get('staffId').upper() # Forces input to uppercase
+        staff_id = request.form.get('staffId').upper() 
         password = request.form.get('password')
         
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        # Case-insensitive lookup just in case older lowercase users exist
         cursor.execute('SELECT password_hash, staff_id FROM admin_users WHERE UPPER(staff_id) = ?', (staff_id,))
         user_record = cursor.fetchone()
         conn.close()
 
         if user_record and check_password_hash(user_record[0], password):
-            # Save the exact matched ID into session to preserve their original casing if needed, but we check uppercase later
             session['staff_id'] = user_record[1] 
             
             allowed = get_allowed_departments(staff_id)
@@ -245,10 +249,9 @@ def logout():
     session.pop('staff_id', None)
     return redirect(url_for('login'))
 
-# SUPER ADMIN: STAFF MANAGEMENT (FIXED)
+# SUPER ADMIN: STAFF MANAGEMENT 
 @app.route('/manage_users')
 def manage_users():
-    # FIX: Forces .upper() to ensure admin01 doesn't get kicked out!
     if 'staff_id' not in session or not session['staff_id'].upper().startswith('ADM'):
         return redirect(url_for('dashboard')) 
         
