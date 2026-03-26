@@ -7,23 +7,20 @@ import os
 import io
 from dotenv import load_dotenv
 
-# IMPORTS FOR EXPORTS
 import csv
 from io import StringIO
 from fpdf import FPDF
-import textwrap # NEW: Used for wrapping PDF text to multiple lines!
+import textwrap 
 import matplotlib
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 
-# IMPORTS FOR WORD DOC
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 
-# IMPORTS FOR REAL EMAIL
 import smtplib
 from email.message import EmailMessage
 
@@ -57,21 +54,61 @@ def init_db():
         )
     ''')
     
-    try:
-        cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
-        cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
-    except sqlite3.OperationalError:
-        pass 
+    try: cursor.execute("ALTER TABLE admin_users ADD COLUMN email VARCHAR(100)")
+    except sqlite3.OperationalError: pass 
         
-    try:
-        cursor.execute("ALTER TABLE patient_feedback ADD COLUMN urgency_level VARCHAR(10) DEFAULT 'Low'")
-    except sqlite3.OperationalError:
-        pass
+    try: cursor.execute("ALTER TABLE admin_users ADD COLUMN phone VARCHAR(20)")
+    except sqlite3.OperationalError: pass
+        
+    try: cursor.execute("ALTER TABLE patient_feedback ADD COLUMN urgency_level VARCHAR(10) DEFAULT 'Low'")
+    except sqlite3.OperationalError: pass
 
     conn.commit()
     conn.close()
 
 init_db()
+
+# ROLE-BASED ACCESS CONTROL (RBAC) LOGIC
+def get_allowed_departments(staff_id):
+    sid = str(staff_id).upper()
+    
+    # 1. Full Access "Super Users"
+    if sid.startswith('ADM') or sid.startswith('QA'):
+        return ['All']
+        
+    # 2. Front Office & Operations (Strictly non-clinical)
+    if sid.startswith('REC'):   
+        return ['Reception', 'General', 'Outpatient'] 
+    if sid.startswith('BIL'):   
+        return ['Billing']
+        
+    # 3. Wide Access Roles (Nurses)
+    if sid.startswith('NUR'):
+        return ['Ward', 'Emergency', 'Maternity', 'Pediatrics', 'Outpatient', 'ICU']
+        
+    # 4. Doctors (Specialty + General/On-Call Base)
+    doc_base = ['Outpatient', 'Emergency', 'ICU', 'Ward']
+    
+    if sid.startswith('DOC'):   return ['Outpatient', 'Emergency', 'ICU', 'Ward']
+    if sid.startswith('SURG'):  return ['Surgery'] + doc_base
+    if sid.startswith('PED'):   return ['Pediatrics'] + doc_base
+    if sid.startswith('MAT'):   return ['Maternity'] + doc_base
+    if sid.startswith('ONC'):   return ['Oncology'] + doc_base
+    if sid.startswith('REN'):   return ['Renal'] + doc_base
+    if sid.startswith('DENT'):  return ['Dental'] + doc_base
+    
+    # 5. Strict Single-Department Roles (Techs & Pharmacists)
+    if sid.startswith('PHARM'): return ['Pharmacy']
+    if sid.startswith('LAB'):   return ['Laboratory']
+    if sid.startswith('RAD'):   return ['Radiology']
+    
+    return ['Ward']
+
+@app.context_processor
+def inject_access():
+    if 'staff_id' in session:
+        return dict(allowed_depts=get_allowed_departments(session['staff_id']))
+    return dict(allowed_depts=[])
 
 @app.after_request
 def add_header(response):
@@ -80,6 +117,7 @@ def add_header(response):
     response.headers["Expires"] = "0"
     return response
 
+# PUBLIC ROUTES
 @app.route('/')
 def home():
     success = request.args.get('success')
@@ -112,46 +150,17 @@ def submit_feedback():
 
         return redirect(url_for('home', success='true', dept=department_result))
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    error_msg = None
-    err_code = request.args.get('error')
-    if err_code == 'mismatch': error_msg = "Passwords do not match!"
-    elif err_code == 'exists': error_msg = "This Staff ID already exists!"
-
-    if request.method == 'POST':
-        staff_id = request.form.get('staffId')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-
-        if password != confirm_password: return redirect(url_for('register', error='mismatch'))
-
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM admin_users WHERE staff_id = ?', (staff_id,))
-        if cursor.fetchone():
-            conn.close()
-            return redirect(url_for('register', error='exists'))
-
-        hashed_pw = generate_password_hash(password)
-        cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', (staff_id, email, hashed_pw))
-        conn.commit()
-        conn.close()
-        return redirect(url_for('login', registered='success'))
-    return render_template('register.html', error=error_msg)
-
+# AUTHENTICATION ROUTES
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     success_msg = None
-    if request.args.get('registered') == 'success': success_msg = "Account created successfully! Please log in."
-    elif request.args.get('reset') == 'success': success_msg = "Password reset successfully! Please log in."
+    if request.args.get('reset') == 'success': success_msg = "Password reset successfully! Please log in."
         
     error_msg = None
     if request.args.get('error') == 'invalid': error_msg = "Invalid Staff ID or Password."
 
     if request.method == 'POST':
-        staff_id = request.form.get('staffId')
+        staff_id = request.form.get('staffId').upper()
         password = request.form.get('password')
         
         conn = sqlite3.connect(DB_NAME)
@@ -162,7 +171,12 @@ def login():
 
         if user_record and check_password_hash(user_record[0], password):
             session['staff_id'] = staff_id
-            return redirect(url_for('dashboard'))
+            
+            allowed = get_allowed_departments(staff_id)
+            if 'All' in allowed:
+                return redirect(url_for('dashboard'))
+            else:
+                return redirect(url_for('department_analysis', dept_name=allowed[0]))
         else:
             return redirect(url_for('login', error='invalid'))
     return render_template('login.html', error_msg=error_msg, success_msg=success_msg)
@@ -174,7 +188,7 @@ def forgot_password():
 
     if request.method == 'POST':
         if step == 'request':
-            staff_id = request.form.get('staffId')
+            staff_id = request.form.get('staffId').upper()
             conn = sqlite3.connect(DB_NAME)
             cursor = conn.cursor()
             cursor.execute('SELECT email FROM admin_users WHERE staff_id = ?', (staff_id,))
@@ -229,9 +243,72 @@ def logout():
     session.pop('staff_id', None)
     return redirect(url_for('login'))
 
+# SUPER ADMIN: STAFF MANAGEMENT
+@app.route('/manage_users')
+def manage_users():
+    if 'staff_id' not in session or not session['staff_id'].startswith('ADM'):
+        return redirect(url_for('dashboard')) 
+        
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT admin_id, staff_id, email FROM admin_users ORDER BY admin_id DESC")
+    users = cursor.fetchall()
+    conn.close()
+    
+    success = request.args.get('success')
+    error = request.args.get('error')
+    
+    return render_template('manage_users.html', users=users, staff_id=session['staff_id'], success=success, error=error)
+
+@app.route('/admin/add_user', methods=['POST'])
+def admin_add_user():
+    if 'staff_id' not in session or not session['staff_id'].startswith('ADM'):
+        return redirect(url_for('dashboard'))
+        
+    new_staff_id = request.form.get('staffId').upper()
+    email = request.form.get('email')
+    password = request.form.get('password')
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM admin_users WHERE staff_id = ?', (new_staff_id,))
+    if cursor.fetchone():
+        conn.close()
+        return redirect(url_for('manage_users', error='exists'))
+        
+    hashed_pw = generate_password_hash(password)
+    cursor.execute('INSERT INTO admin_users (staff_id, email, password_hash) VALUES (?, ?, ?)', (new_staff_id, email, hashed_pw))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('manage_users', success='added'))
+
+@app.route('/admin/delete_user/<staff_id_to_delete>', methods=['POST'])
+def admin_delete_user(staff_id_to_delete):
+    if 'staff_id' not in session or not session['staff_id'].startswith('ADM'):
+        return redirect(url_for('dashboard'))
+        
+    if staff_id_to_delete == session['staff_id']:
+        return redirect(url_for('manage_users', error='self_delete'))
+        
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM admin_users WHERE staff_id = ?", (staff_id_to_delete,))
+    conn.commit()
+    conn.close()
+    
+    return redirect(url_for('manage_users', success='deleted'))
+
+# DASHBOARD & ANALYSIS ROUTES
 @app.route('/dashboard')
 def dashboard():
     if 'staff_id' not in session: return redirect(url_for('login'))
+    
+    allowed = get_allowed_departments(session['staff_id'])
+    if 'All' not in allowed:
+        return redirect(url_for('department_analysis', dept_name=allowed[0]))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback ORDER BY timestamp DESC LIMIT 20')
@@ -250,6 +327,10 @@ def dashboard():
 @app.route('/api/dashboard_data')
 def api_dashboard_data():
     if 'staff_id' not in session: return jsonify({'error': 'Unauthorized'}), 401
+    
+    allowed = get_allowed_departments(session['staff_id'])
+    if 'All' not in allowed: return jsonify({'error': 'Forbidden'}), 403
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM patient_feedback')
@@ -268,6 +349,11 @@ def api_dashboard_data():
 @app.route('/analysis/<dept_name>')
 def department_analysis(dept_name):
     if 'staff_id' not in session: return redirect(url_for('login'))
+    
+    allowed = get_allowed_departments(session['staff_id'])
+    if 'All' not in allowed and dept_name not in allowed:
+        return redirect(url_for('department_analysis', dept_name=allowed[0]))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT timestamp, dept_category, raw_text, sentiment_label, urgency_level FROM patient_feedback WHERE dept_category LIKE ? ORDER BY timestamp DESC", ('%' + dept_name + '%',))
@@ -283,11 +369,15 @@ def department_analysis(dept_name):
     return render_template('analysis.html', dept=dept_name, feedbacks=dept_feedbacks, count=total_dept, issues=neg_dept, pos_count=pos_dept, neu_count=neu_dept, neg_count=neg_dept, staff_id=session['staff_id'])
 
 # EXPORT ROUTES (CSV, PDF, DOCX)
-
 @app.route('/export/csv')
 def export_csv():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
+    
+    allowed = get_allowed_departments(session['staff_id'])
+    if dept == 'All' and 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
+    if dept != 'All' and 'All' not in allowed and dept not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     if dept == 'All':
@@ -335,6 +425,10 @@ class KNH_PDF(FPDF):
 def export_pdf():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
+    
+    allowed = get_allowed_departments(session['staff_id'])
+    if dept == 'All' and 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
+    if dept != 'All' and 'All' not in allowed and dept not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -400,7 +494,6 @@ def export_pdf():
 
     pdf.set_font("helvetica", "", 8)
     
-    # NEW: Advanced text wrapping to prevent cutoff in PDF!
     for row in feedbacks:
         date_str = row[0][:10]
         dept_str = row[1]
@@ -417,14 +510,12 @@ def export_pdf():
         max_lines = max(len(fb_lines), len(dept_lines))
 
         for i in range(max_lines):
-            # Fetch text for this specific line inside the cell
             t_date = date_str if i == 0 else ""
             t_status = status if i == 0 else ""
             t_urgency = urgency if i == 0 else ""
             t_dept = dept_lines[i] if i < len(dept_lines) else ""
             t_fb = fb_lines[i] if i < len(fb_lines) else ""
             
-            # Setup logical borders so it looks like one solid box
             b_style = 'LTR' if i == 0 else 'LR'
             if i == max_lines - 1: b_style = 'LTRB' if max_lines == 1 else 'LRB'
 
@@ -445,6 +536,10 @@ def export_pdf():
 def export_word():
     if 'staff_id' not in session: return redirect(url_for('login'))
     dept = request.args.get('dept', 'All')
+    
+    allowed = get_allowed_departments(session['staff_id'])
+    if dept == 'All' and 'All' not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
+    if dept != 'All' and 'All' not in allowed and dept not in allowed: return redirect(url_for('department_analysis', dept_name=allowed[0]))
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -488,12 +583,10 @@ def export_word():
 
     doc = Document()
     
-    # NEW: Force the entire document to use Arial (Helvetica-equivalent) to match PDF
     style = doc.styles['Normal']
     style.font.name = 'Arial'
     style.font.size = Pt(9)
     
-    # NEW: Fixed Letterhead table formatting to perfectly align the Logo
     header_table = doc.add_table(rows=1, cols=2)
     header_table.autofit = False
     header_table.columns[0].width = Inches(1.2)
@@ -515,7 +608,6 @@ def export_word():
     run_info = p.add_run("P.O. Box 20723-00202 Nairobi\nTel: 020 2726300, 0709854000 | Email: knhadmin@knh.or.ke")
     run_info.font.size = Pt(10)
     
-    # NEW: Creates a real horizontal line in Word Document exactly like the PDF
     line_paragraph = doc.add_paragraph()
     p_format = line_paragraph.paragraph_format
     p_format.space_after = Pt(10)
@@ -532,7 +624,6 @@ def export_word():
 
     doc.add_paragraph() 
     
-    # NEW: Lock Word table column widths to match PDF exactly
     table = doc.add_table(rows=1, cols=5)
     table.style = 'Table Grid'
     table.autofit = False

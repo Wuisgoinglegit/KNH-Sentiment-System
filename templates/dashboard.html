@@ -90,21 +90,59 @@
         
         <div class="menu-title">Departments</div>
         <ul class="nav-list">
-            <li><a href="/analysis/Emergency" class="nav-item"><i data-lucide="ambulance"></i> Emergency</a></li>
-            <li><a href="/analysis/Outpatient" class="nav-item"><i data-lucide="stethoscope"></i> Outpatient</a></li>
-            <li><a href="/analysis/Maternity" class="nav-item"><i data-lucide="baby"></i> Maternity</a></li>
-            <li><a href="/analysis/Pediatrics" class="nav-item"><i data-lucide="smile"></i> Pediatrics</a></li>
-            <li><a href="/analysis/Pharmacy" class="nav-item"><i data-lucide="pill"></i> Pharmacy</a></li>
-            <li><a href="/analysis/Laboratory" class="nav-item"><i data-lucide="flask-conical"></i> Laboratory</a></li>
-            <li><a href="/analysis/Radiology" class="nav-item"><i data-lucide="activity"></i> Radiology</a></li>
-            <li><a href="/analysis/Surgery" class="nav-item"><i data-lucide="scissors"></i> Surgery</a></li>
-            <li><a href="/analysis/Ward" class="nav-item"><i data-lucide="bed-single"></i> Ward / Admits</a></li>
-            <li><a href="/analysis/ICU" class="nav-item"><i data-lucide="heart-pulse"></i> ICU / HDU</a></li>
-            <li><a href="/analysis/Renal" class="nav-item"><i data-lucide="droplets"></i> Renal</a></li>
-            <li><a href="/analysis/Dental" class="nav-item"><i data-lucide="smile-plus"></i> Dental</a></li>
-            <li><a href="/analysis/Oncology" class="nav-item"><i data-lucide="microscope"></i> Oncology</a></li>
-            <li><a href="/analysis/Reception" class="nav-item"><i data-lucide="concierge-bell"></i> Reception</a></li>
-            <li><a href="/analysis/Billing" class="nav-item"><i data-lucide="credit-card"></i> Billing</a></li>
+            {% if 'All' in allowed_depts %}
+                <li><a href="/dashboard" class="nav-item"><i data-lucide="layout-dashboard"></i> Main Dashboard</a></li>
+            {% endif %}
+            
+            {% if 'All' in allowed_depts or 'Emergency' in allowed_depts %}
+                <li><a href="/analysis/Emergency" class="nav-item"><i data-lucide="ambulance"></i> Emergency</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Outpatient' in allowed_depts %}
+                <li><a href="/analysis/Outpatient" class="nav-item"><i data-lucide="stethoscope"></i> Outpatient</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Maternity' in allowed_depts %}
+                <li><a href="/analysis/Maternity" class="nav-item"><i data-lucide="baby"></i> Maternity</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Pediatrics' in allowed_depts %}
+                <li><a href="/analysis/Pediatrics" class="nav-item"><i data-lucide="smile"></i> Pediatrics</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Pharmacy' in allowed_depts %}
+                <li><a href="/analysis/Pharmacy" class="nav-item"><i data-lucide="pill"></i> Pharmacy</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Laboratory' in allowed_depts %}
+                <li><a href="/analysis/Laboratory" class="nav-item"><i data-lucide="flask-conical"></i> Laboratory</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Radiology' in allowed_depts %}
+                <li><a href="/analysis/Radiology" class="nav-item"><i data-lucide="activity"></i> Radiology</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Surgery' in allowed_depts %}
+                <li><a href="/analysis/Surgery" class="nav-item"><i data-lucide="scissors"></i> Surgery</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Ward' in allowed_depts %}
+                <li><a href="/analysis/Ward" class="nav-item"><i data-lucide="bed-single"></i> Ward / Admits</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'ICU' in allowed_depts %}
+                <li><a href="/analysis/ICU" class="nav-item"><i data-lucide="heart-pulse"></i> ICU / HDU</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Renal' in allowed_depts %}
+                <li><a href="/analysis/Renal" class="nav-item"><i data-lucide="droplets"></i> Renal</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Dental' in allowed_depts %}
+                <li><a href="/analysis/Dental" class="nav-item"><i data-lucide="smile-plus"></i> Dental</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Oncology' in allowed_depts %}
+                <li><a href="/analysis/Oncology" class="nav-item"><i data-lucide="microscope"></i> Oncology</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Reception' in allowed_depts %}
+                <li><a href="/analysis/Reception" class="nav-item"><i data-lucide="concierge-bell"></i> Reception</a></li>
+            {% endif %}
+            {% if 'All' in allowed_depts or 'Billing' in allowed_depts %}
+                <li><a href="/analysis/Billing" class="nav-item"><i data-lucide="credit-card"></i> Billing</a></li>
+            {% endif %}
+
+            {% if session['staff_id'].startswith('ADM') %}
+                <li><a href="/manage_users" class="nav-item" style="color: #991b1b; background: #fee2e2; border: 1px solid #fecaca; margin-top: 15px;"><i data-lucide="shield-alert" style="color: #991b1b;"></i> Staff Management</a></li>
+            {% endif %}
         </ul>
     </aside>
 

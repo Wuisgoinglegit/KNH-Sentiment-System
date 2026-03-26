@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNH | Staff Management</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='knh-logo-transparent.png') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        :root { --bg-light: #F4F7F9; --surface: #FFFFFF; --text-main: #00102E; --text-muted: #666666; --border: #E2E8F0; --accent: #87CEEC; --neg-color: #991b1b; }
+        body { background-color: var(--bg-light); color: var(--text-main); padding: 40px 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .back-btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-main); font-weight: bold; padding: 10px 15px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .back-btn:hover { background: var(--accent); }
+        .header { margin-bottom: 30px; }
+        .header h1 { font-size: 28px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; color: var(--text-main); }
+        
+        /* Alerts */
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; font-size: 14px; }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        .admin-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 30px; }
+        
+        /* Forms & Panels */
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .panel h3 { font-size: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; font-weight: bold; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; outline: none; }
+        .form-control:focus { border-color: var(--accent); }
+        .btn-submit { width: 100%; padding: 12px; background: var(--text-main); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-submit:hover { background: #002366; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 12px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
+        td { padding: 15px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; background: #e2e8f0; color: #475569; }
+        .badge-admin { background: #fef3c7; color: #92400e; }
+        
+        .btn-delete { background: #fee2e2; color: var(--neg-color); border: 1px solid #fecaca; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 5px; transition: 0.2s; }
+        .btn-delete:hover { background: var(--neg-color); color: white; }
+
+        @media (max-width: 768px) { .admin-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="back-btn"><i data-lucide="arrow-left" style="width: 18px;"></i> Back to Dashboard</a>
+        
+        <div class="header">
+            <h1><i data-lucide="users-cog"></i> Staff Management</h1>
+            <p style="color: var(--text-muted);">Add, view, or remove hospital staff access credentials.</p>
+        </div>
+
+        {% if success == 'added' %} <div class="alert alert-success">User successfully created!</div> {% endif %}
+        {% if success == 'deleted' %} <div class="alert alert-success">User access revoked.</div> {% endif %}
+        {% if error == 'exists' %} <div class="alert alert-error">Error: A user with that Staff ID already exists.</div> {% endif %}
+        {% if error == 'self_delete' %} <div class="alert alert-error">Security Protocol: You cannot delete your own admin account.</div> {% endif %}
+
+        <div class="admin-grid">
+            <div class="panel" style="height: fit-content;">
+                <h3><i data-lucide="user-plus" style="width: 18px;"></i> Register New Staff</h3>
+                <form action="/admin/add_user" method="POST">
+                    <div class="form-group">
+                        <label>Staff ID (e.g., NUR-101, SURG-55)</label>
+                        <input type="text" name="staffId" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Temporary Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn-submit">Authorize User</button>
+                </form>
+            </div>
+
+            <div class="panel">
+                <h3><i data-lucide="shield" style="width: 18px;"></i> Active System Users</h3>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Staff ID / Role</th>
+                                <th>Email Contact</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>
+                                    <strong>{{ user[1] }}</strong>
+                                    {% if 'ADM' in user[1] %} <span class="badge badge-admin" style="margin-left: 8px;">Super Admin</span>
+                                    {% else %} <span class="badge" style="margin-left: 8px;">Standard</span> {% endif %}
+                                </td>
+                                <td>{{ user[2] if user[2] else 'No email provided' }}</td>
+                                <td style="text-align: right;">
+                                    <form action="/admin/delete_user/{{ user[1] }}" method="POST" onsubmit="return confirm('Are you sure you want to permanently revoke access for {{ user[1] }}?');" style="display: inline;">
+                                        <button type="submit" class="btn-delete"><i data-lucide="trash-2" style="width: 14px;"></i> Revoke</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>try { lucide.createIcons(); } catch (e) { console.error(e); }</script>
+</body>
+</html>
