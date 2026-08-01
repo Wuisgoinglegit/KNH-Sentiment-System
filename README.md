@@ -9,7 +9,7 @@ Proof-of-Concept Feedback Routing for Kenyatta National Hospital
 ---
 
 ## 🎓 Academic Project Status
-The KNH Sentiment System is a personalospit semester project designed as a proof-of-concept. Rather than being deployed and tested in live hospital environments, the system is an actively evolving technical demonstration. I am incrementally expanding the system by adding new department categories and refining the dynamic routing logic over time to showcase how such a platform could scale. By prioritizing a Human-in-the-Loop (HITL) approach early on, this project demonstrates how AI efficiency can be safely paired with human medical expertise.
+The KNH Sentiment System is a personal semester project designed as a proof-of-concept. Rather than being deployed and tested in live hospital environments, the system is an actively evolving technical demonstration. I am incrementally expanding the system by adding new department categories and refining the dynamic routing logic over time to showcase how such a platform could scale. By prioritizing a Human-in-the-Loop (HITL) approach early on, this project demonstrates how AI efficiency can be safely paired with human medical expertise.
 
 **Current System Capabilities**
 
